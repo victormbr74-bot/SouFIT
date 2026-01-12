@@ -1,0 +1,41 @@
+{
+  "name": "FitTrack Pro",
+  "short_name": "FitTrack",
+  "description": "Sistema completo para gerenciamento de treinos e resultados de academia",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#4CAF50",
+  "orientation": "portrait",
+  "scope": "./",
+  "lang": "pt-BR",
+"icons": [
+    {
+      "src": "fit.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "fit.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["health", "fitness", "lifestyle"],
+  "shortcuts": [
+    {
+      "name": "Novo Treino",
+      "short_name": "Treino",
+      "description": "Adicionar novo treino",
+      "url": "./index.html#workout"
+    },
+    {
+      "name": "Nova Medição",
+      "short_name": "Medição",
+      "description": "Registrar nova medição",
+      "url": "./index.html#results"
+    }
+  ]
+}
