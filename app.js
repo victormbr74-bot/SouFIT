@@ -692,6 +692,9 @@ function getHomePage() {
 }
 
 // Initialize Weight Chart
+// Initialize Weight Chart - VERSÃO CORRIGIDA
+// Initialize Weight Chart - VERSÃO COM GRÁFICO DE BARRAS
+// Initialize Weight Chart - VERSÃO COM EVOLUÇÃO RELATIVA
 function initWeightChart() {
     const container = document.getElementById('weightChart');
     if (!container) return;
@@ -699,6 +702,7 @@ function initWeightChart() {
     if (results.length < 2) {
         container.innerHTML = `
             <div class="empty-chart-state">
+                <i class="fas fa-chart-bar"></i>
                 <p>Adicione mais medições para ver o gráfico</p>
             </div>
         `;
@@ -706,79 +710,220 @@ function initWeightChart() {
     }
 
     const recentResults = results.slice(-6);
-
-    const maxWeight = Math.max(...recentResults.map(r => Number(r.weight)));
-    const minWeight = Math.min(...recentResults.map(r => Number(r.weight)));
-
-    const range = Math.max(maxWeight - minWeight, 1);
+    const barCount = recentResults.length;
     const chartHeight = 200;
+    const barSpacing = 10;
+    const availableWidth = 400;
+    const barWidth = Math.min(40, (availableWidth - (barSpacing * (barCount - 1))) / barCount);
+
+    // Encontra o menor e maior peso para a escala
+    const weights = recentResults.map(r => Number(r.weight));
+    const maxWeight = Math.max(...weights);
+    const minWeight = Math.min(...weights);
+    const weightRange = Math.max(maxWeight - minWeight, 2); // Mínimo de 2kg de diferença
+    
+    // Define a escala base (ponto de referência como o primeiro peso)
+    const baseWeight = recentResults[0].weight;
 
     let html = `
-        <div class="simple-weight-chart">
-            <div class="chart-body">
-                <div class="y-axis">
+        <div class="bar-chart-container">
+            <div class="chart-header">
+                <h6>Evolução de Peso</h6>
+            </div>
+            <div class="bar-chart">
+                <div class="chart-body">
+                    <div class="y-axis">
     `;
 
+    // Labels do eixo Y - Mostra valores reais
+    const yStep = weightRange / 4;
     for (let i = 4; i >= 0; i--) {
-        html += `<div class="y-label">${(maxWeight - (range * i / 4)).toFixed(1)}</div>`;
+        const value = (minWeight + (yStep * i)).toFixed(1);
+        html += `<div class="y-label">${value}kg</div>`;
     }
 
     html += `
-                </div>
-                <div class="chart-area">
+                    </div>
+                    <div class="bars-container">
+                        <div class="grid-lines">
     `;
 
+    // Linhas de grade horizontais
     for (let i = 0; i <= 4; i++) {
-        html += `<div class="grid-line" style="top:${(i * chartHeight) / 4}px"></div>`;
+        const top = (i * chartHeight) / 4;
+        html += `<div class="grid-line" style="top:${top}px"></div>`;
     }
 
-    recentResults.forEach((r, i) => {
-        const x = (i * 100) / (recentResults.length - 1);
-        const y = ((maxWeight - r.weight) / range) * chartHeight;
+    html += `
+                        </div>
+                        <div class="bars">
+    `;
 
-        html += `<div class="data-point" style="left:${x}%; top:${y}px"></div>`;
+    // Cores para barras positivas (ganho) e negativas (perda)
+    const positiveColor = '#4CAF50'; // Verde para ganho/perda saudável
+    const negativeColor = '#FF5722'; // Laranja para perda
 
-        if (i > 0) {
-            const prev = recentResults[i - 1];
-            const prevY = ((maxWeight - prev.weight) / range) * chartHeight;
-            const dx = 100 / (recentResults.length - 1);
-            const dy = y - prevY;
-            const length = Math.sqrt(dx * dx + dy * dy);
-            const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-
-            html += `
-                <div class="line-segment"
-                     style="left:${(i - 1) * dx}%;
-                            top:${prevY}px;
-                            width:${length}px;
-                            transform: rotate(${angle}deg);">
-                </div>`;
+    // Desenha as barras
+    recentResults.forEach((result, index) => {
+        const currentWeight = Number(result.weight);
+        
+        // Calcula a diferença em relação ao primeiro peso
+        const diffFromStart = currentWeight - baseWeight;
+        const percentDiff = (diffFromStart / baseWeight) * 100;
+        
+        // Calcula altura da barra baseada na escala total
+        const barHeight = ((currentWeight - minWeight) / weightRange) * chartHeight;
+        const barLeft = index * (barWidth + barSpacing);
+        
+        // Define cor baseada na evolução
+        let barColor;
+        let diffText = '';
+        
+        if (index === 0) {
+            barColor = '#2196F3'; // Azul para o ponto inicial
+            diffText = 'Início';
+        } else {
+            barColor = diffFromStart >= 0 ? positiveColor : negativeColor;
+            diffText = diffFromStart >= 0 ? 
+                `+${diffFromStart.toFixed(1)}kg` : 
+                `${diffFromStart.toFixed(1)}kg`;
         }
+
+        html += `
+            <div class="bar-group" style="left:${barLeft}px; width:${barWidth}px">
+                <div class="bar-wrapper">
+                    <div class="bar-base-line"></div>
+                    <div class="bar" 
+                         style="height:${barHeight}px; 
+                                background: linear-gradient(to top, ${barColor}, ${barColor}80);"
+                         data-weight="${result.weight}kg" 
+                         data-date="${result.date}"
+                         data-diff="${diffText}">
+                    </div>
+                </div>
+                <div class="bar-label">
+                    <div class="weight-value">${result.weight}kg</div>
+                    ${index > 0 ? `<div class="diff-value ${diffFromStart >= 0 ? 'positive' : 'negative'}">${diffText}</div>` : ''}
+                </div>
+                <div class="bar-date">${result.date.split('/')[0] || ''}</div>
+            </div>
+        `;
     });
 
     html += `
+                        </div>
+                    </div>
                 </div>
+            </div>
+            <div class="chart-info">
+                <div class="legend">
+                    <span class="legend-item"><span class="legend-color" style="background: #2196F3"></span> Ponto inicial</span>
+                    <span class="legend-item"><span class="legend-color" style="background: #4CAF50"></span> Ganho (+)</span>
+                    <span class="legend-item"><span class="legend-color" style="background: #FF5722"></span> Perda (-)</span>
+                </div>
+                <small class="text-muted">Comparação com a primeira medição: ${baseWeight}kg</small>
             </div>
         </div>
     `;
 
     container.innerHTML = html;
     
-    // Adicionar estilos para o gráfico
-    const styleId = 'weight-chart-styles';
+    // Adiciona interatividade às barras
+    setTimeout(() => {
+        document.querySelectorAll('.bar').forEach(bar => {
+            bar.addEventListener('mouseenter', function() {
+                this.style.transform = 'scaleY(1.05)';
+                this.style.boxShadow = '0 0 15px rgba(76, 175, 80, 0.5)';
+                
+                // Tooltip
+                const tooltip = document.createElement('div');
+                tooltip.className = 'bar-tooltip';
+                const weight = this.dataset.weight;
+                const date = this.dataset.date;
+                const diff = this.dataset.diff;
+                
+                tooltip.innerHTML = `
+                    <div><strong>${weight}</strong></div>
+                    <div>${date}</div>
+                    ${diff ? `<div class="diff-tooltip">${diff}</div>` : ''}
+                `;
+                
+                tooltip.style.position = 'absolute';
+                tooltip.style.bottom = '100%';
+                tooltip.style.left = '50%';
+                tooltip.style.transform = 'translateX(-50%)';
+                tooltip.style.background = 'rgba(0, 0, 0, 0.9)';
+                tooltip.style.color = 'white';
+                tooltip.style.padding = '10px 15px';
+                tooltip.style.borderRadius = '8px';
+                tooltip.style.fontSize = '12px';
+                tooltip.style.zIndex = '100';
+                tooltip.style.minWidth = '140px';
+                tooltip.style.textAlign = 'center';
+                tooltip.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.4)';
+                
+                this.appendChild(tooltip);
+            });
+            
+            bar.addEventListener('mouseleave', function() {
+                this.style.transform = 'scaleY(1)';
+                this.style.boxShadow = 'none';
+                const tooltip = this.querySelector('.bar-tooltip');
+                if (tooltip) tooltip.remove();
+            });
+        });
+    }, 100);
+    
+    // Adiciona estilos CSS atualizados
+    const styleId = 'bar-chart-styles';
     if (!document.getElementById(styleId)) {
         const style = document.createElement('style');
         style.id = styleId;
         style.textContent = `
-            .simple-weight-chart {
+            .bar-chart-container {
                 position: relative;
-                padding: 20px;
+                padding: 15px;
+                background: rgba(255, 255, 255, 0.03);
+                border-radius: 12px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+            
+            .chart-header {
+                text-align: center;
+                margin-bottom: 15px;
+            }
+            
+            .chart-header h6 {
+                color: var(--text-primary);
+                font-weight: 600;
+                margin: 0;
+                font-size: 1.1rem;
+            }
+            
+            .bar-chart {
+                width: 100%;
+                overflow-x: auto;
+                padding: 10px 0;
+            }
+            
+            .bar-chart::-webkit-scrollbar {
+                height: 6px;
+            }
+            
+            .bar-chart::-webkit-scrollbar-track {
+                background: rgba(255, 255, 255, 0.05);
+                border-radius: 3px;
+            }
+            
+            .bar-chart::-webkit-scrollbar-thumb {
+                background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+                border-radius: 3px;
             }
             
             .chart-body {
                 display: flex;
                 height: ${chartHeight}px;
-                position: relative;
+                min-width: 500px;
             }
             
             .y-axis {
@@ -786,22 +931,30 @@ function initWeightChart() {
                 display: flex;
                 flex-direction: column;
                 justify-content: space-between;
-                padding-right: 10px;
+                padding-right: 15px;
                 border-right: 1px solid rgba(255, 255, 255, 0.2);
+                flex-shrink: 0;
             }
             
             .y-label {
-                color: #888888;
-                font-size: 12px;
+                color: var(--text-muted);
+                font-size: 11px;
                 text-align: right;
-                height: 20px;
                 line-height: 20px;
             }
             
-            .chart-area {
+            .bars-container {
                 flex: 1;
                 position: relative;
                 margin-left: 10px;
+            }
+            
+            .grid-lines {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
             }
             
             .grid-line {
@@ -812,48 +965,138 @@ function initWeightChart() {
                 background: rgba(255, 255, 255, 0.1);
             }
             
-            .data-point {
+            .bars {
+                position: relative;
+                height: 100%;
+                display: flex;
+                align-items: flex-end;
+                padding-bottom: 25px;
+            }
+            
+            .bar-group {
                 position: absolute;
-                width: 12px;
-                height: 12px;
-                background: #4CAF50;
-                border: 2px solid white;
-                border-radius: 50%;
-                transform: translateX(-50%);
-                cursor: pointer;
-                z-index: 2;
+                bottom: 0;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
                 transition: all 0.3s ease;
             }
             
-            .data-point:hover {
-                transform: translateX(-50%) scale(1.5);
-                box-shadow: 0 0 10px #4CAF50;
+            .bar-wrapper {
+                position: relative;
+                width: 100%;
+                height: ${chartHeight}px;
+                display: flex;
+                align-items: flex-end;
             }
             
-            .data-point:hover .point-tooltip {
-                display: block;
-            }
-            
-            .point-tooltip {
-                display: none;
+            .bar-base-line {
                 position: absolute;
-                bottom: 100%;
-                left: 50%;
-                transform: translateX(-50%);
-                background: rgba(0, 0, 0, 0.9);
-                color: white;
-                padding: 8px 12px;
-                border-radius: 6px;
-                white-space: nowrap;
-                font-size: 12px;
-                z-index: 10;
-                min-width: 120px;
-                text-align: center;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-                margin-bottom: 10px;
+                top: ${((baseWeight - minWeight) / weightRange) * chartHeight}px;
+                left: -5px;
+                right: -5px;
+                height: 2px;
+                background: rgba(255, 255, 255, 0.3);
+                border-radius: 1px;
+                z-index: 1;
             }
             
-            .point-tooltip::after {
+            .bar {
+                width: 100%;
+                border-radius: 6px 6px 0 0;
+                transition: all 0.3s ease;
+                cursor: pointer;
+                position: relative;
+                z-index: 2;
+                min-height: 3px;
+            }
+            
+            .bar:hover {
+                opacity: 0.9;
+                filter: brightness(1.1);
+            }
+            
+            .bar-label {
+                margin-top: 8px;
+                font-size: 11px;
+                text-align: center;
+                white-space: nowrap;
+                width: 100%;
+            }
+            
+            .weight-value {
+                font-weight: 600;
+                color: var(--text-primary);
+                margin-bottom: 2px;
+            }
+            
+            .diff-value {
+                font-size: 10px;
+                padding: 2px 6px;
+                border-radius: 10px;
+                margin-top: 2px;
+                font-weight: 600;
+            }
+            
+            .diff-value.positive {
+                color: #4CAF50;
+                background: rgba(76, 175, 80, 0.15);
+            }
+            
+            .diff-value.negative {
+                color: #FF5722;
+                background: rgba(255, 87, 34, 0.15);
+            }
+            
+            .bar-date {
+                margin-top: 5px;
+                font-size: 10px;
+                color: var(--text-muted);
+                text-align: center;
+                white-space: nowrap;
+            }
+            
+            .chart-info {
+                margin-top: 20px;
+                padding-top: 15px;
+                border-top: 1px solid rgba(255, 255, 255, 0.1);
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                align-items: center;
+            }
+            
+            .legend {
+                display: flex;
+                gap: 15px;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .legend-item {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 12px;
+                color: var(--text-secondary);
+            }
+            
+            .legend-color {
+                width: 12px;
+                height: 12px;
+                border-radius: 3px;
+                display: inline-block;
+            }
+            
+            .diff-tooltip {
+                margin-top: 4px;
+                padding: 2px 8px;
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 4px;
+                font-weight: 600;
+            }
+            
+            .bar-tooltip::after {
                 content: '';
                 position: absolute;
                 top: 100%;
@@ -864,48 +1107,13 @@ function initWeightChart() {
                 border-color: rgba(0, 0, 0, 0.9) transparent transparent transparent;
             }
             
-            .line-segment {
-                position: absolute;
-                background: #4CAF50;
-                transform-origin: 0 0;
-                z-index: 1;
-                height: 3px;
-            }
-            
-            .x-axis {
-                display: flex;
-                justify-content: space-between;
-                margin-top: 20px;
-                padding-left: 60px;
-                padding-right: 10px;
-            }
-            
-            .x-label {
-                color: #888888;
-                font-size: 12px;
-                text-align: center;
-                min-width: 40px;
-                transform: translateX(-50%);
-            }
-            
-            .chart-header {
-                text-align: center;
-                margin-bottom: 15px;
-            }
-            
-            .chart-header h6 {
-                color: #ffffff;
-                font-weight: 600;
-                font-size: 1.1rem;
-            }
-            
             .empty-chart-state {
                 display: flex;
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
                 height: 200px;
-                color: #888888;
+                color: var(--text-muted);
             }
             
             .empty-chart-state i {
@@ -913,11 +1121,35 @@ function initWeightChart() {
                 margin-bottom: 15px;
                 opacity: 0.5;
             }
+            
+            /* Responsividade */
+            @media (max-width: 768px) {
+                .chart-body {
+                    min-width: 400px;
+                }
+                
+                .bar-group {
+                    min-width: 35px;
+                }
+                
+                .bar-label {
+                    font-size: 10px;
+                }
+                
+                .bar-date {
+                    font-size: 9px;
+                }
+                
+                .legend {
+                    flex-direction: column;
+                    gap: 8px;
+                    align-items: flex-start;
+                }
+            }
         `;
         document.head.appendChild(style);
     }
 }
-
 // Workout Page
 function getWorkoutPage() {
     return `
@@ -1932,6 +2164,11 @@ function renderWorkoutList() {
                                             ` : ''}
                                         </div>
                                         <div class="d-flex flex-column gap-2 ms-3">
+                                            <button class="btn btn-sm btn-outline-info" 
+                                                    onclick="viewWorkoutExercises(${workout.id})" 
+                                                    title="Ver/Editar exercícios">
+                                                <i class="fas fa-list"></i>
+                                            </button>
                                             <button class="btn btn-sm ${workout.completed ? 'btn-success' : 'btn-outline-success'}" 
                                                     onclick="toggleWorkout(${workout.id})" 
                                                     title="${workout.completed ? 'Marcar como pendente' : 'Marcar como concluído'}">
@@ -2085,17 +2322,17 @@ function renderResultsList() {
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
-                            <table class="table">
+                            <table class="table table-sm">
                                 <thead>
                                     <tr>
-                                        <th>Data</th>
-                                        <th>Peso (kg)</th>
-                                        <th>Bíceps (cm)</th>
-                                        <th>Cintura (cm)</th>
-                                        <th>Peito (cm)</th>
-                                        <th>Quadril (cm)</th>
-                                        <th>IMC</th>
-                                        <th>Ações</th>
+                                        <th class="text-nowrap">Data</th>
+                                        <th class="text-nowrap">Peso (kg)</th>
+                                        <th class="text-nowrap">Bíceps (cm)</th>
+                                        <th class="text-nowrap">Cintura (cm)</th>
+                                        <th class="text-nowrap">Peito (cm)</th>
+                                        <th class="text-nowrap">Quadril (cm)</th>
+                                        <th class="text-nowrap">IMC</th>
+                                        <th class="text-nowrap">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -2104,18 +2341,18 @@ function renderResultsList() {
     results.slice().reverse().forEach(result => {
         html += `
             <tr>
-                <td><strong>${result.date}</strong></td>
-                <td>${result.weight}</td>
-                <td>${result.biceps}</td>
-                <td>${result.waist}</td>
-                <td>${result.chest}</td>
-                <td>${result.hips}</td>
-                <td>
+                <td class="text-nowrap"><strong>${result.date}</strong></td>
+                <td class="text-nowrap">${result.weight}</td>
+                <td class="text-nowrap">${result.biceps}</td>
+                <td class="text-nowrap">${result.waist}</td>
+                <td class="text-nowrap">${result.chest}</td>
+                <td class="text-nowrap">${result.hips}</td>
+                <td class="text-nowrap">
                     <span class="badge ${getBMIBadgeClass(result.bmi)}">
                         ${result.bmi}
                     </span>
                 </td>
-                <td>
+                <td class="text-nowrap">
                     <button class="btn btn-sm btn-outline-danger" onclick="deleteResult(${result.id})">
                         <i class="fas fa-trash"></i>
                     </button>
@@ -2173,6 +2410,163 @@ window.addWorkoutForDay = function(day) {
         document.getElementById('workoutDay').value = day;
         modal.show();
     }
+};
+
+// View/Edit Workout Exercises
+window.viewWorkoutExercises = function(workoutId) {
+    const workout = workouts.find(w => w.id === workoutId);
+    if (!workout) return;
+    
+    const exercisesHtml = workout.exercises.map((ex, index) => `
+        <div class="exercise-item mb-2" data-index="${index}">
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <input type="text" class="form-control exercise-name-edit" 
+                           value="${ex.name}" placeholder="Nome do exercício">
+                </div>
+                <div class="col-md-4">
+                    <input type="text" class="form-control exercise-sets-edit" 
+                           value="${ex.sets}" placeholder="Séries (ex: 3x12)">
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-outline-danger w-100 remove-exercise-edit">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    const modalHtml = `
+        <div class="modal fade" id="exercisesModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Exercícios - ${workout.name}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="exercisesForm">
+                            <div class="mb-3">
+                                <label class="form-label">Lista de Exercícios</label>
+                                <div id="exercisesListContainer">
+                                    ${exercisesHtml}
+                                </div>
+                                <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="addExerciseEditBtn">
+                                    <i class="fas fa-plus me-1"></i>Adicionar Exercício
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" onclick="saveWorkoutExercises(${workoutId})">
+                            Salvar Alterações
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal
+    const existingModal = document.getElementById('exercisesModal');
+    if (existingModal) existingModal.remove();
+    
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Show modal
+    const modalElement = document.getElementById('exercisesModal');
+    const modal = new bootstrap.Modal(modalElement);
+    modal.show();
+    
+    // Add event listeners
+    document.getElementById('addExerciseEditBtn')?.addEventListener('click', () => {
+        addExerciseEditField();
+    });
+    
+    // Remove exercise listeners
+    document.querySelectorAll('.remove-exercise-edit').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const container = document.getElementById('exercisesListContainer');
+            if (container.children.length > 1) {
+                this.closest('.exercise-item').remove();
+            }
+        });
+    });
+};
+
+// Add exercise field in edit modal
+function addExerciseEditField() {
+    const container = document.getElementById('exercisesListContainer');
+    if (!container) return;
+    
+    const exerciseDiv = document.createElement('div');
+    exerciseDiv.className = 'exercise-item mb-2';
+    exerciseDiv.innerHTML = `
+        <div class="row g-2">
+            <div class="col-md-6">
+                <input type="text" class="form-control exercise-name-edit" placeholder="Nome do exercício">
+            </div>
+            <div class="col-md-4">
+                <input type="text" class="form-control exercise-sets-edit" placeholder="Séries (ex: 3x12)">
+            </div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-outline-danger w-100 remove-exercise-edit">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    
+    container.appendChild(exerciseDiv);
+    
+    // Add event listener to remove button
+    exerciseDiv.querySelector('.remove-exercise-edit').addEventListener('click', function() {
+        const container = document.getElementById('exercisesListContainer');
+        if (container.children.length > 1) {
+            exerciseDiv.remove();
+        }
+    });
+}
+
+// Save workout exercises
+window.saveWorkoutExercises = function(workoutId) {
+    const workout = workouts.find(w => w.id === workoutId);
+    if (!workout) return;
+    
+    const exercises = [];
+    document.querySelectorAll('#exercisesListContainer .exercise-item').forEach(item => {
+        const nameInput = item.querySelector('.exercise-name-edit');
+        const setsInput = item.querySelector('.exercise-sets-edit');
+        
+        if (nameInput?.value.trim()) {
+            exercises.push({
+                id: Date.now() + Math.random(),
+                name: nameInput.value.trim(),
+                sets: setsInput?.value.trim() || '3x12',
+                completed: false
+            });
+        }
+    });
+    
+    workout.exercises = exercises;
+    saveData();
+    
+    // Close modal
+    const modalElement = document.getElementById('exercisesModal');
+    if (modalElement) {
+        const modal = bootstrap.Modal.getInstance(modalElement);
+        if (modal) {
+            modal.hide();
+        }
+    }
+    
+    // Reload workout list
+    renderWorkoutList();
+    
+    showToast('Exercícios atualizados com sucesso!', 'success');
 };
 
 // Save to Phone
