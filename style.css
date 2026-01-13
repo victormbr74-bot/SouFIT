@@ -624,6 +624,70 @@ p, span, div {
     }
 }
 
+/* Scroll horizontal para tabelas em mobile */
+@media (max-width: 768px) {
+    .table-responsive {
+        -webkit-overflow-scrolling: touch; /* Scroll suave no iOS */
+        overflow-x: auto;
+        display: block;
+        width: 100%;
+    }
+    
+    .table-responsive table {
+        min-width: 600px; /* Força scroll horizontal */
+        margin-bottom: 0;
+    }
+    
+    /* Estilo para indicar que há mais conteúdo */
+    .table-responsive::-webkit-scrollbar {
+        height: 6px;
+    }
+    
+    .table-responsive::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 3px;
+    }
+    
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: var(--primary-color);
+        border-radius: 3px;
+    }
+    
+    /* Adiciona um gradiente para indicar que há mais conteúdo à direita */
+    .table-responsive {
+        position: relative;
+    }
+    
+    .table-responsive::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 30px;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(10, 10, 10, 0.8));
+        pointer-events: none;
+        border-radius: 0 16px 16px 0;
+    }
+}
+
+/* Para dispositivos muito pequenos */
+@media (max-width: 576px) {
+    .table-responsive table {
+        min-width: 700px;
+    }
+    
+    .table th, .table td {
+        padding: 10px 8px;
+        font-size: 0.85rem;
+    }
+    
+    .btn-sm {
+        padding: 0.2rem 0.4rem;
+        font-size: 0.8rem;
+    }
+}
+
 /* Print Styles */
 @media print {
     .no-print {
