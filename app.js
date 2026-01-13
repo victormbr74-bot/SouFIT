@@ -118,12 +118,28 @@ function loadData() {
             profilePics = {};
         }
         
+        // Normalizar IDs dos exercícios
+        normalizeExerciseIds();
+        
     } catch (error) {
         console.error('Erro ao carregar dados:', error);
         workouts = getDefaultWorkouts();
         results = getDefaultResults();
         profilePics = {};
     }
+}
+
+// Normalizar IDs dos exercícios
+function normalizeExerciseIds() {
+    workouts.forEach(workout => {
+        workout.exercises.forEach((exercise, index) => {
+            // Se o exercício não tiver ID ou tiver um ID inválido, criar um novo
+            if (!exercise.id || typeof exercise.id === 'undefined') {
+                exercise.id = `ex-${workout.id}-${index}-${Date.now()}`;
+            }
+        });
+    });
+    saveData();
 }
 
 // Save Data to localStorage
@@ -154,9 +170,24 @@ function getDefaultWorkouts() {
             day: 'Seg',
             name: 'Peito e Tríceps',
             exercises: [
-                { id: 1, name: 'Supino Reto', sets: '4x10', completed: true },
-                { id: 2, name: 'Crucifixo', sets: '3x12', completed: true },
-                { id: 3, name: 'Tríceps Pulley', sets: '3x15', completed: false }
+                { 
+                    id: 'ex-1-1-1',
+                    name: 'Supino Reto', 
+                    sets: '4x10', 
+                    completed: true 
+                },
+                { 
+                    id: 'ex-1-2-1',
+                    name: 'Crucifixo', 
+                    sets: '3x12', 
+                    completed: true 
+                },
+                { 
+                    id: 'ex-1-3-1',
+                    name: 'Tríceps Pulley', 
+                    sets: '3x15', 
+                    completed: false 
+                }
             ],
             duration: '60 min',
             completed: true,
@@ -167,9 +198,24 @@ function getDefaultWorkouts() {
             day: 'Ter',
             name: 'Costas e Bíceps',
             exercises: [
-                { id: 1, name: 'Puxada Alta', sets: '4x10', completed: true },
-                { id: 2, name: 'Remada Curvada', sets: '3x12', completed: true },
-                { id: 3, name: 'Rosca Direta', sets: '3x15', completed: true }
+                { 
+                    id: 'ex-2-1-1',
+                    name: 'Puxada Alta', 
+                    sets: '4x10', 
+                    completed: true 
+                },
+                { 
+                    id: 'ex-2-2-1',
+                    name: 'Remada Curvada', 
+                    sets: '3x12', 
+                    completed: true 
+                },
+                { 
+                    id: 'ex-2-3-1',
+                    name: 'Rosca Direta', 
+                    sets: '3x15', 
+                    completed: true 
+                }
             ],
             duration: '60 min',
             completed: true,
@@ -180,9 +226,24 @@ function getDefaultWorkouts() {
             day: 'Qua',
             name: 'Pernas',
             exercises: [
-                { id: 1, name: 'Agachamento Livre', sets: '4x8', completed: true },
-                { id: 2, name: 'Leg Press', sets: '3x12', completed: false },
-                { id: 3, name: 'Cadeira Extensora', sets: '3x15', completed: false }
+                { 
+                    id: 'ex-3-1-1',
+                    name: 'Agachamento Livre', 
+                    sets: '4x8', 
+                    completed: true 
+                },
+                { 
+                    id: 'ex-3-2-1',
+                    name: 'Leg Press', 
+                    sets: '3x12', 
+                    completed: false 
+                },
+                { 
+                    id: 'ex-3-3-1',
+                    name: 'Cadeira Extensora', 
+                    sets: '3x15', 
+                    completed: false 
+                }
             ],
             duration: '75 min',
             completed: false,
@@ -193,9 +254,24 @@ function getDefaultWorkouts() {
             day: 'Qui',
             name: 'Ombros e Trapézio',
             exercises: [
-                { id: 1, name: 'Desenvolvimento', sets: '4x10', completed: false },
-                { id: 2, name: 'Elevação Lateral', sets: '3x12', completed: false },
-                { id: 3, name: 'Encolhimento', sets: '3x15', completed: false }
+                { 
+                    id: 'ex-4-1-1',
+                    name: 'Desenvolvimento', 
+                    sets: '4x10', 
+                    completed: false 
+                },
+                { 
+                    id: 'ex-4-2-1',
+                    name: 'Elevação Lateral', 
+                    sets: '3x12', 
+                    completed: false 
+                },
+                { 
+                    id: 'ex-4-3-1',
+                    name: 'Encolhimento', 
+                    sets: '3x15', 
+                    completed: false 
+                }
             ],
             duration: '60 min',
             completed: false,
@@ -216,32 +292,32 @@ function getDefaultResults() {
         {
             id: 1,
             date: twoWeeksAgo.toLocaleDateString('pt-BR'),
-            weight: 82.5,
+            weight: 98.5,
             biceps: 37.5,
             chest: 104,
             waist: 93,
             hips: 101,
-            bmi: 26.5
+            bmi: 35.3
         },
         {
             id: 2,
             date: lastWeek.toLocaleDateString('pt-BR'),
-            weight: 81.8,
+            weight: 97.9,
             biceps: 38,
             chest: 104.5,
             waist: 92,
             hips: 100.5,
-            bmi: 26.2
+            bmi: 34.8
         },
         {
             id: 3,
             date: today.toLocaleDateString('pt-BR'),
-            weight: 81.2,
+            weight: 96.0,
             biceps: 38.5,
             chest: 105,
             waist: 91,
             hips: 100,
-            bmi: 26.0
+            bmi: 34.2
         }
     ];
 }
@@ -558,7 +634,7 @@ function getHomePage() {
                                             <small class="text-muted d-block mb-2">Exercícios:</small>
                                             <div class="d-flex flex-wrap gap-2">
                                                 ${workout.exercises.slice(0, 3).map(ex => `
-                                                    <span class="badge bg-dark">${ex.name}</span>
+                                                    <span class="badge ${ex.completed ? 'bg-success' : 'bg-dark'}">${ex.name}${ex.completed ? ' ✓' : ''}</span>
                                                 `).join('')}
                                                 ${workout.exercises.length > 3 ? 
                                                     `<span class="badge bg-secondary">+${workout.exercises.length - 3}</span>` : ''}
@@ -691,10 +767,7 @@ function getHomePage() {
     `;
 }
 
-// Initialize Weight Chart
-// Initialize Weight Chart - VERSÃO CORRIGIDA
 // Initialize Weight Chart - VERSÃO COM GRÁFICO DE BARRAS
-// Initialize Weight Chart - VERSÃO COM EVOLUÇÃO RELATIVA
 function initWeightChart() {
     const container = document.getElementById('weightChart');
     if (!container) return;
@@ -720,7 +793,7 @@ function initWeightChart() {
     const weights = recentResults.map(r => Number(r.weight));
     const maxWeight = Math.max(...weights);
     const minWeight = Math.min(...weights);
-    const weightRange = Math.max(maxWeight - minWeight, 2); // Mínimo de 2kg de diferença
+    const weightRange = Math.max(maxWeight - minWeight, 2);
     
     // Define a escala base (ponto de referência como o primeiro peso)
     const baseWeight = recentResults[0].weight;
@@ -760,8 +833,8 @@ function initWeightChart() {
     `;
 
     // Cores para barras positivas (ganho) e negativas (perda)
-    const positiveColor = '#4CAF50'; // Verde para ganho/perda saudável
-    const negativeColor = '#FF5722'; // Laranja para perda
+    const positiveColor = '#4CAF50';
+    const negativeColor = '#FF5722';
 
     // Desenha as barras
     recentResults.forEach((result, index) => {
@@ -769,7 +842,6 @@ function initWeightChart() {
         
         // Calcula a diferença em relação ao primeiro peso
         const diffFromStart = currentWeight - baseWeight;
-        const percentDiff = (diffFromStart / baseWeight) * 100;
         
         // Calcula altura da barra baseada na escala total
         const barHeight = ((currentWeight - minWeight) / weightRange) * chartHeight;
@@ -780,7 +852,7 @@ function initWeightChart() {
         let diffText = '';
         
         if (index === 0) {
-            barColor = '#2196F3'; // Azul para o ponto inicial
+            barColor = '#2196F3';
             diffText = 'Início';
         } else {
             barColor = diffFromStart >= 0 ? positiveColor : negativeColor;
@@ -874,7 +946,7 @@ function initWeightChart() {
         });
     }, 100);
     
-    // Adiciona estilos CSS atualizados
+    // Adiciona estilos CSS para o gráfico de barras
     const styleId = 'bar-chart-styles';
     if (!document.getElementById(styleId)) {
         const style = document.createElement('style');
@@ -1150,6 +1222,7 @@ function initWeightChart() {
         document.head.appendChild(style);
     }
 }
+
 // Workout Page
 function getWorkoutPage() {
     return `
@@ -1942,8 +2015,9 @@ function saveWorkout() {
         const setsInput = item.querySelector('.exercise-sets');
         
         if (nameInput?.value.trim()) {
+            const uniqueId = `ex-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
             exercises.push({
-                id: Date.now() + Math.random(),
+                id: uniqueId,
                 name: nameInput.value.trim(),
                 sets: setsInput?.value.trim() || '3x12',
                 completed: false
@@ -2075,7 +2149,7 @@ function calculateBMI(weight, height) {
     return (weight / ((height / 100) ** 2)).toFixed(1);
 }
 
-// Render Workout List
+// Render Workout List - VERSÃO CORRIGIDA COM CHECKBOXES INDIVIDUAIS
 function renderWorkoutList() {
     const container = document.getElementById('workoutListContainer');
     if (!container) return;
@@ -2147,19 +2221,58 @@ function renderWorkoutList() {
                                 <div class="workout-item mb-3 ${workout.completed ? 'completed' : ''}" data-id="${workout.id}">
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div class="flex-grow-1">
-                                            <h6 class="mb-1">${workout.name}</h6>
+                                            <div class="d-flex align-items-center mb-2">
+                                                <h6 class="mb-0 me-2">${workout.name}</h6>
+                                                <span class="badge ${workout.completed ? 'bg-success' : 'bg-warning'}">
+                                                    ${workout.completed ? 'Concluído' : 'Pendente'}
+                                                </span>
+                                            </div>
                                             <small class="text-muted d-block">
                                                 <i class="fas fa-clock me-1"></i>${workout.duration}
                                             </small>
+                                            
                                             ${workout.exercises.length > 0 ? `
-                                                <div class="mt-2">
-                                                    <small class="text-muted d-block mb-1">Progresso:</small>
-                                                    <div class="progress" style="height:6px">
-                                                        <div class="progress-bar" style="width:${exerciseRate}%"></div>
+                                                <div class="mt-3">
+                                                    <small class="text-muted d-block mb-2">Exercícios:</small>
+                                                    <div class="exercises-list">
+                                                        ${workout.exercises.map((ex, index) => {
+                                                            const exerciseId = ex.id || `ex-${workout.id}-${index}`;
+                                                            return `
+                                                                <div class="exercise-item ${ex.completed ? 'completed' : ''} mb-2" data-exercise-id="${exerciseId}">
+                                                                    <div class="d-flex align-items-center">
+                                                                        <button class="btn btn-sm ${ex.completed ? 'btn-success' : 'btn-outline-success'} exercise-check me-2" 
+                                                                                onclick="toggleExercise('${workout.id}', '${exerciseId}')"
+                                                                                title="${ex.completed ? 'Marcar como não feito' : 'Marcar como feito'}">
+                                                                            <i class="fas fa-${ex.completed ? 'check-circle' : 'circle'}"></i>
+                                                                        </button>
+                                                                        <div class="flex-grow-1">
+                                                                            <div class="d-flex justify-content-between align-items-center">
+                                                                                <span class="${ex.completed ? 'text-success text-decoration-line-through' : 'text-light'}">
+                                                                                    ${ex.name}
+                                                                                </span>
+                                                                                <small class="text-muted">${ex.sets}</small>
+                                                                            </div>
+                                                                            ${ex.completed ? `
+                                                                                <small class="text-success">
+                                                                                    <i class="fas fa-check me-1"></i>Concluído
+                                                                                </small>
+                                                                            ` : ''}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            `;
+                                                        }).join('')}
                                                     </div>
-                                                    <small class="text-muted">
-                                                        ${completedExercises}/${totalExercises} exercícios
-                                                    </small>
+                                                    
+                                                    <div class="mt-3">
+                                                        <small class="text-muted d-block mb-1">Progresso:</small>
+                                                        <div class="progress" style="height:8px">
+                                                            <div class="progress-bar" style="width:${exerciseRate}%"></div>
+                                                        </div>
+                                                        <small class="text-muted">
+                                                            ${completedExercises}/${totalExercises} exercícios
+                                                        </small>
+                                                    </div>
                                                 </div>
                                             ` : ''}
                                         </div>
@@ -2215,7 +2328,7 @@ function renderResultsList() {
                 <div class="empty-state-icon">📏</div>
                 <h4>Nenhuma medição registrada</h4>
                 <p>Comece registrando sua primeira medição!</p>
-                <button class="btn btn-primary" id="addFirstResultBtn">
+                                <button class="btn btn-primary" id="addFirstResultBtn">
                     <i class="fas fa-plus me-2"></i>Registrar Primeira Medição
                 </button>
             </div>
@@ -2385,6 +2498,41 @@ window.toggleWorkout = function(workoutId) {
     }
 };
 
+// Toggle Exercise Completion - VERSÃO CORRIGIDA
+window.toggleExercise = function(workoutId, exerciseId) {
+    const workout = workouts.find(w => w.id == workoutId);
+    if (!workout) {
+        console.error('Workout not found:', workoutId);
+        return;
+    }
+    
+    // Encontrar o exercício pelo ID
+    const exercise = workout.exercises.find(e => e.id == exerciseId);
+    if (!exercise) {
+        console.error('Exercise not found:', exerciseId);
+        console.log('Available exercises:', workout.exercises.map(e => ({ id: e.id, name: e.name })));
+        return;
+    }
+    
+    // Alternar status de conclusão
+    exercise.completed = !exercise.completed;
+    
+    // Verificar se todos os exercícios estão concluídos
+    const allExercisesCompleted = workout.exercises.every(e => e.completed);
+    if (allExercisesCompleted && !workout.completed) {
+        workout.completed = true;
+        showToast('🎉 Todos os exercícios concluídos! Treino marcado como completo.', 'success');
+    } else if (!allExercisesCompleted && workout.completed) {
+        workout.completed = false;
+        showToast('Treino marcado como pendente pois há exercícios incompletos.', 'warning');
+    }
+    
+    saveData();
+    renderWorkoutList();
+    
+    showToast(`"${exercise.name}" ${exercise.completed ? 'concluído' : 'pendente'}!`, 'info');
+};
+
 window.deleteWorkout = function(workoutId) {
     if (confirm('Tem certeza que deseja excluir este treino?')) {
         workouts = workouts.filter(w => w.id !== workoutId);
@@ -2418,7 +2566,28 @@ window.viewWorkoutExercises = function(workoutId) {
     if (!workout) return;
     
     const exercisesHtml = workout.exercises.map((ex, index) => `
-        <div class="exercise-item mb-2" data-index="${index}">
+        <div class="exercise-item mb-3 p-3 ${ex.completed ? 'completed-exercise' : ''}" data-index="${index}">
+            <div class="d-flex align-items-center mb-2">
+                <button class="btn btn-sm ${ex.completed ? 'btn-success' : 'btn-outline-success'} me-3 toggle-exercise-edit"
+                        data-index="${index}"
+                        data-exercise-id="${ex.id}"
+                        title="${ex.completed ? 'Marcar como não feito' : 'Marcar como feito'}">
+                    <i class="fas fa-${ex.completed ? 'check-circle' : 'circle'}"></i>
+                </button>
+                <div class="flex-grow-1">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3 ${ex.completed ? 'text-success text-decoration-line-through' : 'text-light'}">
+                            ${ex.name}
+                        </div>
+                        <span class="badge bg-dark ms-auto">${ex.sets}</span>
+                    </div>
+                    ${ex.completed ? `
+                        <small class="text-success">
+                            <i class="fas fa-check me-1"></i>Concluído
+                        </small>
+                    ` : ''}
+                </div>
+            </div>
             <div class="row g-2">
                 <div class="col-md-6">
                     <input type="text" class="form-control exercise-name-edit" 
@@ -2446,17 +2615,25 @@ window.viewWorkoutExercises = function(workoutId) {
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <form id="exercisesForm">
-                            <div class="mb-3">
-                                <label class="form-label">Lista de Exercícios</label>
-                                <div id="exercisesListContainer">
-                                    ${exercisesHtml}
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6>Lista de Exercícios</h6>
+                                <div>
+                                    <span class="badge bg-dark me-2">
+                                        ${workout.exercises.filter(e => e.completed).length}/${workout.exercises.length} concluídos
+                                    </span>
+                                    <button class="btn btn-sm btn-outline-primary" id="checkAllExercisesBtn">
+                                        <i class="fas fa-check-double me-1"></i>Marcar Todos
+                                    </button>
                                 </div>
-                                <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="addExerciseEditBtn">
-                                    <i class="fas fa-plus me-1"></i>Adicionar Exercício
-                                </button>
                             </div>
-                        </form>
+                            <div id="exercisesListContainer">
+                                ${exercisesHtml}
+                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="addExerciseEditBtn">
+                                <i class="fas fa-plus me-1"></i>Adicionar Exercício
+                            </button>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -2486,6 +2663,67 @@ window.viewWorkoutExercises = function(workoutId) {
         addExerciseEditField();
     });
     
+    // Check all exercises button
+    document.getElementById('checkAllExercisesBtn')?.addEventListener('click', () => {
+        const allCompleted = workout.exercises.every(e => e.completed);
+        workout.exercises.forEach(ex => {
+            ex.completed = !allCompleted;
+        });
+        
+        // Update UI
+        document.querySelectorAll('.toggle-exercise-edit').forEach(btn => {
+            const index = parseInt(btn.dataset.index);
+            const exercise = workout.exercises[index];
+            btn.className = `btn btn-sm ${exercise.completed ? 'btn-success' : 'btn-outline-success'} me-3 toggle-exercise-edit`;
+            btn.innerHTML = `<i class="fas fa-${exercise.completed ? 'check-circle' : 'circle'}"></i>`;
+            btn.title = exercise.completed ? 'Marcar como não feito' : 'Marcar como feito';
+            
+            const exerciseItem = btn.closest('.exercise-item');
+            if (exercise.completed) {
+                exerciseItem.classList.add('completed-exercise');
+            } else {
+                exerciseItem.classList.remove('completed-exercise');
+            }
+        });
+        
+        showToast(allCompleted ? 'Todos os exercícios desmarcados' : 'Todos os exercícios marcados!', 'success');
+    });
+    
+    // Toggle exercise completion in edit modal
+    document.querySelectorAll('.toggle-exercise-edit').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const index = parseInt(this.dataset.index);
+            const exerciseId = this.dataset.exerciseId;
+            
+            // Encontrar o exercício
+            let exercise;
+            if (exerciseId) {
+                exercise = workout.exercises.find(e => e.id == exerciseId);
+            } else {
+                exercise = workout.exercises[index];
+            }
+            
+            if (exercise) {
+                exercise.completed = !exercise.completed;
+                
+                // Update button
+                this.className = `btn btn-sm ${exercise.completed ? 'btn-success' : 'btn-outline-success'} me-3 toggle-exercise-edit`;
+                this.innerHTML = `<i class="fas fa-${exercise.completed ? 'check-circle' : 'circle'}"></i>`;
+                this.title = exercise.completed ? 'Marcar como não feito' : 'Marcar como feito';
+                
+                // Update exercise item style
+                const exerciseItem = this.closest('.exercise-item');
+                if (exercise.completed) {
+                    exerciseItem.classList.add('completed-exercise');
+                } else {
+                    exerciseItem.classList.remove('completed-exercise');
+                }
+                
+                showToast(`Exercício ${exercise.completed ? 'concluído' : 'pendente'}!`, 'info');
+            }
+        });
+    });
+    
     // Remove exercise listeners
     document.querySelectorAll('.remove-exercise-edit').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -2503,8 +2741,17 @@ function addExerciseEditField() {
     if (!container) return;
     
     const exerciseDiv = document.createElement('div');
-    exerciseDiv.className = 'exercise-item mb-2';
+    exerciseDiv.className = 'exercise-item mb-3 p-3';
     exerciseDiv.innerHTML = `
+        <div class="d-flex align-items-center mb-2">
+            <button class="btn btn-sm btn-outline-success me-3 toggle-exercise-edit"
+                    title="Marcar como feito">
+                <i class="fas fa-circle"></i>
+            </button>
+            <div class="flex-grow-1">
+                <div class="text-light">Novo Exercício</div>
+            </div>
+        </div>
         <div class="row g-2">
             <div class="col-md-6">
                 <input type="text" class="form-control exercise-name-edit" placeholder="Nome do exercício">
@@ -2522,6 +2769,25 @@ function addExerciseEditField() {
     
     container.appendChild(exerciseDiv);
     
+    // Add event listener to toggle button
+    const toggleBtn = exerciseDiv.querySelector('.toggle-exercise-edit');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function() {
+            const exerciseItem = this.closest('.exercise-item');
+            const isCompleted = this.classList.contains('btn-success');
+            
+            this.className = `btn btn-sm ${isCompleted ? 'btn-outline-success' : 'btn-success'} me-3 toggle-exercise-edit`;
+            this.innerHTML = `<i class="fas fa-${isCompleted ? 'circle' : 'check-circle'}"></i>`;
+            this.title = isCompleted ? 'Marcar como feito' : 'Marcar como não feito';
+            
+            if (!isCompleted) {
+                exerciseItem.classList.add('completed-exercise');
+            } else {
+                exerciseItem.classList.remove('completed-exercise');
+            }
+        });
+    }
+    
     // Add event listener to remove button
     exerciseDiv.querySelector('.remove-exercise-edit').addEventListener('click', function() {
         const container = document.getElementById('exercisesListContainer');
@@ -2537,21 +2803,40 @@ window.saveWorkoutExercises = function(workoutId) {
     if (!workout) return;
     
     const exercises = [];
-    document.querySelectorAll('#exercisesListContainer .exercise-item').forEach(item => {
+    const oldExercisesMap = {};
+    
+    // Mapear exercícios antigos por ID para preservar status
+    workout.exercises.forEach(ex => {
+        oldExercisesMap[ex.id] = ex;
+    });
+    
+    document.querySelectorAll('#exercisesListContainer .exercise-item').forEach((item, index) => {
         const nameInput = item.querySelector('.exercise-name-edit');
         const setsInput = item.querySelector('.exercise-sets-edit');
+        const toggleBtn = item.querySelector('.toggle-exercise-edit');
+        const exerciseId = toggleBtn?.dataset.exerciseId;
         
         if (nameInput?.value.trim()) {
+            // Usar ID existente ou criar novo
+            const oldExerciseId = exerciseId || `ex-${workoutId}-${Date.now()}-${index}`;
+            const wasCompleted = oldExercisesMap[oldExerciseId]?.completed || false;
+            const isCompleted = toggleBtn?.classList.contains('btn-success') || false;
+            
             exercises.push({
-                id: Date.now() + Math.random(),
+                id: oldExerciseId,
                 name: nameInput.value.trim(),
                 sets: setsInput?.value.trim() || '3x12',
-                completed: false
+                completed: isCompleted || wasCompleted
             });
         }
     });
     
     workout.exercises = exercises;
+    
+    // Verifica se todos os exercícios estão completos
+    const allExercisesCompleted = workout.exercises.every(e => e.completed);
+    workout.completed = allExercisesCompleted;
+    
     saveData();
     
     // Close modal
@@ -2639,6 +2924,70 @@ function showToast(message, type = 'info') {
         });
     }
 }
+
+// Add CSS styles for exercises
+document.addEventListener('DOMContentLoaded', function() {
+    const exerciseStyles = document.createElement('style');
+    exerciseStyles.textContent = `
+        /* Estilos para exercícios */
+        .exercises-list {
+            margin-top: 10px;
+        }
+        
+        .exercise-item {
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            border-left: 3px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .exercise-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            transform: translateX(3px);
+        }
+        
+        .exercise-item.completed {
+            border-left-color: #4CAF50;
+            background: rgba(76, 175, 80, 0.1);
+        }
+        
+        .exercise-check {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        
+        .exercise-check:hover {
+            transform: scale(1.1);
+        }
+        
+        .completed-exercise {
+            background: rgba(76, 175, 80, 0.15) !important;
+            border-left: 3px solid #4CAF50 !important;
+        }
+        
+        .text-decoration-line-through {
+            text-decoration: line-through;
+            opacity: 0.8;
+        }
+        
+        /* Botão de marcar todos */
+        #checkAllExercisesBtn {
+            transition: all 0.3s ease;
+        }
+        
+        #checkAllExercisesBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+        }
+    `;
+    document.head.appendChild(exerciseStyles);
+});
 
 // Make loadPage available globally
 window.loadPage = loadPage;
