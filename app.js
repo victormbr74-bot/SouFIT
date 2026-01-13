@@ -30,29 +30,38 @@ document.addEventListener('DOMContentLoaded', function() {
 function initializeApp() {
     console.log('Inicializando dados do app...');
     
-    // Initialize default users with profile pictures
-    users = {
-        1: {
-            id: 1,
-            name: "Ana Silva",
-            email: "ana@email.com",
-            height: 165,
-            age: 28,
-            goal: "Perda de peso",
-            experience: "Intermediário",
-            profilePic: '👩'
-        },
-        2: {
-            id: 2,
-            name: "Carlos Santos",
-            email: "carlos@email.com",
-            height: 180,
-            age: 32,
-            goal: "Ganho de massa",
-            experience: "Avançado",
-            profilePic: '👨'
-        }
-    };
+    // Carregar usuários do localStorage primeiro
+    const savedUsers = localStorage.getItem('fitTrackUsers');
+    if (savedUsers) {
+        users = JSON.parse(savedUsers);
+        console.log('Usuários carregados do localStorage:', Object.keys(users).length);
+    } else {
+        // Initialize default users with profile pictures
+        users = {
+            1: {
+                id: 1,
+                name: "Ana Silva",
+                email: "ana@email.com",
+                height: 165,
+                age: 28,
+                goal: "Perda de peso",
+                experience: "Intermediário",
+                profilePic: '👩'
+            },
+            2: {
+                id: 2,
+                name: "Carlos Santos",
+                email: "carlos@email.com",
+                height: 180,
+                age: 32,
+                goal: "Ganho de massa",
+                experience: "Avançado",
+                profilePic: '👨'
+            }
+        };
+        // Salvar usuários padrão
+        localStorage.setItem('fitTrackUsers', JSON.stringify(users));
+    }
 
     // Load data from localStorage
     loadData();
@@ -149,6 +158,9 @@ function saveData() {
             console.error('Não há usuário atual para salvar');
             return;
         }
+        
+        // Salvar lista de usuários
+        localStorage.setItem('fitTrackUsers', JSON.stringify(users));
         
         localStorage.setItem('fitTrackCurrentUser', JSON.stringify(currentUser));
         localStorage.setItem(`fitTrackWorkouts_${currentUser.id}`, JSON.stringify(workouts));
@@ -401,25 +413,72 @@ function updateUserMenu() {
         const item = document.createElement('button');
         item.className = `dropdown-item ${currentUser && currentUser.id === user.id ? 'active' : ''}`;
         item.innerHTML = `
-            <div class="d-flex align-items-center">
-                <div class="rounded-circle me-2 d-flex align-items-center justify-content-center"
-                    style="width:36px;height:36px;background:${currentUser && currentUser.id === user.id ? 'linear-gradient(45deg, #4CAF50, #FF5722)' : '#2d2d2d'};color:white">
-                    ${profilePics[user.id] ? 
-                        `<img src="${profilePics[user.id]}" alt="${user.name}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` : 
-                        user.profilePic || '👤'}
+            <div class="d-flex align-items-center justify-content-between w-100">
+                <div class="d-flex align-items-center">
+                    <div class="rounded-circle me-2 d-flex align-items-center justify-content-center"
+                        style="width:36px;height:36px;background:${currentUser && currentUser.id === user.id ? 'linear-gradient(45deg, #4CAF50, #FF5722)' : '#2d2d2d'};color:white">
+                        ${profilePics[user.id] ? 
+                            `<img src="${profilePics[user.id]}" alt="${user.name}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` : 
+                            user.profilePic || '👤'}
+                    </div>
+                    <div>
+                        <div class="fw-bold">${user.name}</div>
+                        <small class="text-muted">${user.email}</small>
+                    </div>
                 </div>
-                <div>
-                    <div class="fw-bold">${user.name}</div>
-                    <small class="text-muted">${user.email}</small>
-                </div>
+                ${currentUser && currentUser.id !== user.id ? 
+                    `<button class="btn btn-sm btn-outline-danger ms-2 remove-user-btn" data-id="${user.id}" title="Remover usuário">
+                        <i class="fas fa-times"></i>
+                    </button>` : 
+                    ''}
             </div>
         `;
         item.addEventListener('click', (e) => {
-            e.stopPropagation();
-            switchUser(user.id);
+            if (!e.target.closest('.remove-user-btn')) {
+                e.stopPropagation();
+                e.preventDefault();
+                switchUser(user.id);
+            }
         });
         userMenu.appendChild(item);
     });
+    
+    // Adicionar botão para adicionar usuário
+    const addUserItem = document.createElement('button');
+    addUserItem.className = 'dropdown-item text-success';
+    addUserItem.innerHTML = `
+        <div class="d-flex align-items-center">
+            <i class="fas fa-user-plus me-3"></i>
+            <span>Adicionar Novo Usuário</span>
+        </div>
+    `;
+    addUserItem.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        addUser();
+    });
+    userMenu.appendChild(addUserItem);
+    
+    // Separador
+    const divider = document.createElement('hr');
+    divider.className = 'dropdown-divider';
+    userMenu.appendChild(divider);
+    
+    // Botão de gerenciar usuários
+    const manageUsersItem = document.createElement('button');
+    manageUsersItem.className = 'dropdown-item';
+    manageUsersItem.innerHTML = `
+        <div class="d-flex align-items-center">
+            <i class="fas fa-users-cog me-3"></i>
+            <span>Gerenciar Usuários</span>
+        </div>
+    `;
+    manageUsersItem.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        openUsersManager();
+    });
+    userMenu.appendChild(manageUsersItem);
     
     // Update navbar username
     const userDropdownText = document.querySelector('#userDropdown .username');
@@ -432,22 +491,436 @@ function updateUserMenu() {
     if (dropdownElement) {
         new bootstrap.Dropdown(dropdownElement);
     }
+    
+    // Adicionar event listeners para botões de remover
+    setTimeout(() => {
+        document.querySelectorAll('.remove-user-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                const userId = parseInt(this.getAttribute('data-id'));
+                removeUser(userId);
+            });
+        });
+    }, 100);
 }
 
-// Switch User
+// Add User
+function addUser() {
+    const name = prompt("Digite o nome do novo usuário:");
+    if (!name || name.trim() === '') return;
+    
+    const email = prompt("Digite o email do novo usuário:");
+    if (!email || email.trim() === '') return;
+    
+    const height = parseInt(prompt("Digite a altura (cm):")) || 170;
+    const age = parseInt(prompt("Digite a idade:")) || 25;
+    const experience = prompt("Nível de experiência (Iniciante/Intermediário/Avançado):") || "Iniciante";
+    const goal = prompt("Objetivo (Perda de peso/Ganho de massa/Definição muscular):") || "Perda de peso";
+    const profilePic = prompt("Emoji para foto (opcional):") || '👤';
+    
+    // Gerar novo ID
+    const newId = Math.max(...Object.keys(users).map(Number), 0) + 1;
+    
+    users[newId] = {
+        id: newId,
+        name: name.trim(),
+        email: email.trim(),
+        height: height,
+        age: age,
+        experience: experience,
+        goal: goal,
+        profilePic: profilePic
+    };
+    
+    // Criar dados vazios para o novo usuário
+    localStorage.setItem(`fitTrackWorkouts_${newId}`, JSON.stringify([]));
+    localStorage.setItem(`fitTrackResults_${newId}`, JSON.stringify([]));
+    
+    saveData();
+    updateUserMenu();
+    showToast(`Usuário ${name} adicionado com sucesso!`, 'success');
+}
+
+// Remove User
+function removeUser(userId) {
+    userId = parseInt(userId);
+    
+    if (!users[userId]) {
+        showToast('Usuário não encontrado', 'error');
+        return;
+    }
+    
+    const userName = users[userId].name;
+    
+    if (currentUser && userId === currentUser.id) {
+        showToast('Não é possível remover o usuário atual. Troque para outro usuário primeiro.', 'error');
+        return;
+    }
+    
+    if (!confirm(`Tem certeza que deseja remover o usuário "${userName}"?\n\nEsta ação não pode ser desfeita.`)) {
+        return;
+    }
+    
+    delete users[userId];
+    
+    // Remover dados do usuário do localStorage
+    localStorage.removeItem(`fitTrackWorkouts_${userId}`);
+    localStorage.removeItem(`fitTrackResults_${userId}`);
+    
+    if (profilePics[userId]) {
+        delete profilePics[userId];
+    }
+    
+    // Salvar a lista de usuários atualizada
+    saveData();
+    updateUserMenu();
+    
+    // Se estiver no modal de gerenciamento, recarregar
+    const modal = document.getElementById('usersManagerModal');
+    if (modal && modal.classList.contains('show')) {
+        openUsersManager(); // Recarregar modal
+    }
+    
+    showToast(`Usuário ${userName} removido com sucesso!`, 'success');
+}
+
+// Edit User
+function editUser(userId) {
+    userId = parseInt(userId);
+    const user = users[userId];
+    if (!user) return;
+    
+    const name = prompt("Novo nome:", user.name);
+    if (name === null || name.trim() === '') return;
+    
+    const email = prompt("Novo email:", user.email);
+    if (email === null || email.trim() === '') return;
+    
+    const height = parseInt(prompt("Nova altura (cm):", user.height)) || user.height;
+    const age = parseInt(prompt("Nova idade:", user.age)) || user.age;
+    const experience = prompt("Novo nível de experiência:", user.experience) || user.experience;
+    const goal = prompt("Novo objetivo:", user.goal) || user.goal;
+    const profilePic = prompt("Novo emoji (opcional):", user.profilePic) || user.profilePic;
+    
+    users[userId] = {
+        ...user,
+        name: name.trim(),
+        email: email.trim(),
+        height: height,
+        age: age,
+        experience: experience,
+        goal: goal,
+        profilePic: profilePic
+    };
+    
+    // Atualizar usuário atual se for o mesmo
+    if (currentUser && currentUser.id === userId) {
+        currentUser = users[userId];
+    }
+    
+    saveData();
+    updateUserMenu();
+    
+    // Se estiver no modal de gerenciamento, recarregar
+    const modal = document.getElementById('usersManagerModal');
+    if (modal && modal.classList.contains('show')) {
+        openUsersManager(); // Recarregar modal
+    }
+    
+    showToast(`Usuário ${user.name} atualizado com sucesso!`, 'success');
+}
+
+// Open Users Manager
+function openUsersManager() {
+    let modalHtml = `
+        <div class="modal fade" id="usersManagerModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="fas fa-users me-2"></i>Gerenciar Usuários</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Foto</th>
+                                        <th>Nome</th>
+                                        <th>Email</th>
+                                        <th>Perfil</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersManagerList">
+    `;
+    
+    Object.values(users).forEach(user => {
+        const isCurrent = currentUser && currentUser.id === user.id;
+        modalHtml += `
+            <tr ${isCurrent ? 'class="table-primary"' : ''}>
+                <td>
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center"
+                        style="width:40px;height:40px;background:#2d2d2d;color:white">
+                        ${profilePics[user.id] ? 
+                            `<img src="${profilePics[user.id]}" alt="${user.name}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` : 
+                            user.profilePic || '👤'}
+                    </div>
+                </td>
+                <td>
+                    <strong>${user.name}</strong>
+                    ${isCurrent ? '<span class="badge bg-success ms-2">Atual</span>' : ''}
+                </td>
+                <td>${user.email}</td>
+                <td>
+                    <span class="badge bg-primary">${user.experience}</span><br>
+                    <small class="text-muted">${user.goal}</small>
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary" onclick="window.switchUser(${user.id}); setTimeout(() => { const modalEl = document.getElementById('usersManagerModal'); if(modalEl) bootstrap.Modal.getInstance(modalEl).hide(); }, 100);" 
+                                ${isCurrent ? 'disabled' : ''}>
+                            <i class="fas fa-sign-in-alt"></i> Usar
+                        </button>
+                        <button class="btn btn-outline-warning" onclick="window.editUser(${user.id})">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="window.removeUser(${user.id})" 
+                                ${isCurrent ? 'disabled' : ''}>
+                            <i class="fas fa-trash"></i> Remover
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+    
+    modalHtml += `
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <button class="btn btn-success" onclick="window.addUser(); setTimeout(() => { const modalEl = document.getElementById('usersManagerModal'); if(modalEl) bootstrap.Modal.getInstance(modalEl).hide(); }, 100);">
+                                <i class="fas fa-user-plus me-2"></i>Adicionar Novo Usuário
+                            </button>
+                            <button class="btn btn-outline-info ms-2" onclick="window.exportAllUsersData()">
+                                <i class="fas fa-download me-2"></i>Exportar Todos os Dados
+                            </button>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remover modal existente
+    const existingModal = document.getElementById('usersManagerModal');
+    if (existingModal) existingModal.remove();
+    
+    // Adicionar modal ao body
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Mostrar modal
+    const modalElement = document.getElementById('usersManagerModal');
+    const modal = new bootstrap.Modal(modalElement);
+    modal.show();
+    
+    // Fechar modal
+    modalElement.addEventListener('hidden.bs.modal', function() {
+        modalElement.remove();
+    });
+}
+
+// Export All Users Data
+function exportAllUsersData() {
+    const allData = {
+        users: users,
+        profilePics: profilePics,
+        exportDate: new Date().toISOString(),
+        version: '2.0.0'
+    };
+    
+    // Adicionar workouts e results de cada usuário
+    Object.values(users).forEach(user => {
+        const userWorkouts = JSON.parse(localStorage.getItem(`fitTrackWorkouts_${user.id}`)) || [];
+        const userResults = JSON.parse(localStorage.getItem(`fitTrackResults_${user.id}`)) || [];
+        
+        if (!allData.userData) allData.userData = {};
+        allData.userData[user.id] = {
+            workouts: userWorkouts,
+            results: userResults
+        };
+    });
+    
+    const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fit-track-all-users-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showToast('Dados de todos os usuários exportados com sucesso!', 'success');
+}
+
+// Import All Users Data
+function importAllUsersData() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.style.display = 'none';
+    
+    input.onchange = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                
+                if (!confirm('Isso substituirá todos os dados de todos os usuários. Deseja continuar?')) {
+                    return;
+                }
+                
+                // Validar estrutura dos dados
+                if (!data.users) {
+                    showToast('Arquivo de backup inválido', 'error');
+                    return;
+                }
+                
+                // Importar dados
+                users = data.users;
+                profilePics = data.profilePics || {};
+                
+                // Salvar usuários no localStorage
+                localStorage.setItem('fitTrackUsers', JSON.stringify(users));
+                localStorage.setItem('fitTrackProfilePics', JSON.stringify(profilePics));
+                
+                // Importar dados de cada usuário
+                if (data.userData) {
+                    Object.keys(data.userData).forEach(userId => {
+                        const userData = data.userData[userId];
+                        if (userData.workouts) {
+                            localStorage.setItem(`fitTrackWorkouts_${userId}`, JSON.stringify(userData.workouts));
+                        }
+                        if (userData.results) {
+                            localStorage.setItem(`fitTrackResults_${userId}`, JSON.stringify(userData.results));
+                        }
+                    });
+                }
+                
+                // Atualizar usuário atual
+                if (currentUser && users[currentUser.id]) {
+                    currentUser = users[currentUser.id];
+                } else {
+                    // Se o usuário atual não existir mais, usar o primeiro
+                    const firstUserId = Object.keys(users)[0];
+                    if (firstUserId) {
+                        currentUser = users[firstUserId];
+                    }
+                }
+                
+                // Salvar usuário atual
+                localStorage.setItem('fitTrackCurrentUser', JSON.stringify(currentUser));
+                
+                // Recarregar dados
+                loadData();
+                updateUserMenu();
+                loadPage('home');
+                
+                showToast('Dados de todos os usuários importados com sucesso!', 'success');
+            } catch (error) {
+                console.error('Import error:', error);
+                showToast('Erro ao importar dados. Arquivo inválido.', 'error');
+            }
+        };
+        reader.onerror = function() {
+            showToast('Erro ao ler o arquivo', 'error');
+        };
+        reader.readAsText(file);
+    };
+    
+    document.body.appendChild(input);
+    input.click();
+    document.body.removeChild(input);
+}
+
+// Switch User - FUNÇÃO PRINCIPAL CORRIGIDA
 function switchUser(userId) {
+    userId = parseInt(userId);
+    
+    console.log('Tentando trocar para usuário ID:', userId);
+    console.log('Usuários disponíveis:', Object.keys(users));
+    console.log('Usuário solicitado existe?', !!users[userId]);
+    
     if (!users[userId]) {
         console.error('Usuário não encontrado:', userId);
         showToast('Usuário não encontrado', 'error');
         return;
     }
     
-    console.log('Trocando para usuário:', users[userId].name);
-    currentUser = users[userId];
-    loadData(); // Recarregar dados do novo usuário
-    saveData(); // Salvar alteração
+    const newUser = users[userId];
+    console.log('Trocando para usuário:', newUser.name);
+    
+    // Salvar dados do usuário atual ANTES de trocar
+    if (currentUser) {
+        console.log('Salvando dados do usuário atual:', currentUser.name);
+        localStorage.setItem(`fitTrackWorkouts_${currentUser.id}`, JSON.stringify(workouts));
+        localStorage.setItem(`fitTrackResults_${currentUser.id}`, JSON.stringify(results));
+    }
+    
+    // Definir novo usuário como atual
+    currentUser = newUser;
+    console.log('Novo usuário atual definido:', currentUser.name);
+    
+    // Salvar novo usuário atual
+    localStorage.setItem('fitTrackCurrentUser', JSON.stringify(currentUser));
+    
+    // Recarregar dados do NOVO usuário
+    console.log('Recarregando dados para o novo usuário...');
+    const userIdForLoad = currentUser.id;
+    
+    // Carregar workouts do novo usuário
+    const savedWorkouts = localStorage.getItem(`fitTrackWorkouts_${userIdForLoad}`);
+    if (savedWorkouts) {
+        workouts = JSON.parse(savedWorkouts);
+        console.log(`${workouts.length} treinos carregados para ${currentUser.name}`);
+    } else {
+        workouts = [];
+        console.log('Nenhum treino salvo para o novo usuário');
+    }
+    
+    // Carregar results do novo usuário
+    const savedResults = localStorage.getItem(`fitTrackResults_${userIdForLoad}`);
+    if (savedResults) {
+        results = JSON.parse(savedResults);
+        console.log(`${results.length} resultados carregados para ${currentUser.name}`);
+    } else {
+        results = [];
+        console.log('Nenhum resultado salvo para o novo usuário');
+    }
+    
+    // Fechar dropdown
+    const dropdownInstance = bootstrap.Dropdown.getInstance(document.getElementById('userDropdown'));
+    if (dropdownInstance) {
+        dropdownInstance.hide();
+    }
+    
+    // Atualizar UI
     updateUserMenu();
-    loadPage('home');
+    
+    // Recarregar página atual
+    const currentHash = window.location.hash.substring(1) || 'home';
+    loadPage(currentHash);
+    
     showToast(`Usuário alterado para ${currentUser.name}`, 'success');
 }
 
@@ -529,8 +1002,7 @@ function getHomePage() {
                                         <div class="profile-pic">
                                             ${profilePics[currentUser.id] ? 
                                                 `<img src="${profilePics[currentUser.id]}" alt="${currentUser.name}" class="profile-img">` :
-                                                `<span>${currentUser.profilePic || '👤'}</span>`
-                                            }
+                                                `<span>${currentUser.profilePic || '👤'}</span>`}
                                         </div>
                                     </div>
                                 </div>
@@ -1418,8 +1890,7 @@ function getProfilePage() {
                                         <div class="profile-pic me-4" id="profilePicture">
                                             ${profilePics[currentUser.id] ? 
                                                 `<img src="${profilePics[currentUser.id]}" alt="${currentUser.name}">` :
-                                                `<span>${currentUser.profilePic || '👤'}</span>`
-                                            }
+                                                `<span>${currentUser.profilePic || '👤'}</span>`}
                                             <input type="file" id="profilePicInput" class="profile-pic-input" 
                                                    accept="image/*" title="Clique para alterar foto">
                                         </div>
@@ -1498,7 +1969,7 @@ function getProfilePage() {
                                 <button class="list-group-item list-group-item-action bg-transparent border-0 d-flex justify-content-between align-items-center py-3" id="exportDataBtn">
                                     <div>
                                         <i class="fas fa-download me-3"></i>
-                                        <span>Exportar Todos os Dados</span>
+                                        <span>Exportar Dados</span>
                                     </div>
                                     <i class="fas fa-chevron-right text-muted"></i>
                                 </button>
@@ -1516,10 +1987,17 @@ function getProfilePage() {
                                     </div>
                                     <i class="fas fa-chevron-right text-muted"></i>
                                 </button>
-                                <button class="list-group-item list-group-item-action bg-transparent border-0 d-flex justify-content-between align-items-center py-3" onclick="saveToPhone()">
+                                <button class="list-group-item list-group-item-action bg-transparent border-0 d-flex justify-content-between align-items-center py-3" onclick="window.saveToPhone()">
                                     <div>
                                         <i class="fas fa-mobile-alt me-3"></i>
                                         <span>Salvar como App</span>
+                                    </div>
+                                    <i class="fas fa-chevron-right text-muted"></i>
+                                </button>
+                                <button class="list-group-item list-group-item-action bg-transparent border-0 d-flex justify-content-between align-items-center py-3" onclick="window.openUsersManager()">
+                                    <div>
+                                        <i class="fas fa-users me-3"></i>
+                                        <span>Gerenciar Usuários</span>
                                     </div>
                                     <i class="fas fa-chevron-right text-muted"></i>
                                 </button>
@@ -1748,7 +2226,7 @@ function setupProfileEvents() {
     // Import data button
     const importDataBtn = document.getElementById('importDataBtn');
     if (importDataBtn) {
-        importDataBtn.addEventListener('click', importData);
+        importDataBtn.addEventListener('click', importAllUsersData);
     }
     
     // Clear data button
@@ -1866,26 +2344,34 @@ function saveProfile() {
 
 // Export Data
 function exportData() {
-    const data = {
-        user: currentUser,
-        workouts: workouts,
-        results: results,
-        profilePics: profilePics,
-        exportDate: new Date().toISOString(),
-        version: '2.0.0'
-    };
+    const exportAll = confirm('Deseja exportar:\n\n• Apenas dados do usuário atual\n• Dados de todos os usuários');
     
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `fit-track-backup-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    if (exportAll === null) return; // Usuário cancelou
     
-    showToast('Dados exportados com sucesso!', 'success');
+    if (exportAll) {
+        exportAllUsersData();
+    } else {
+        const data = {
+            user: currentUser,
+            workouts: workouts,
+            results: results,
+            profilePics: profilePics,
+            exportDate: new Date().toISOString(),
+            version: '2.0.0'
+        };
+        
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `fit-track-backup-${currentUser.name}-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showToast('Dados do usuário atual exportados com sucesso!', 'success');
+    }
 }
 
 // Import Data
@@ -1946,7 +2432,7 @@ function importData() {
 
 // Clear Data
 function clearData() {
-    if (!confirm('⚠️ ATENÇÃO: Isso apagará TODOS os seus dados locais (treinos, resultados, configurações). Esta ação NÃO pode ser desfeita. Deseja continuar?')) {
+    if (!confirm('⚠️ ATENÇÃO: Isso apagará TODOS os dados de TODOS os usuários. Esta ação NÃO pode ser desfeita. Deseja continuar?')) {
         return;
     }
     
@@ -2925,71 +3411,16 @@ function showToast(message, type = 'info') {
     }
 }
 
-// Add CSS styles for exercises
-document.addEventListener('DOMContentLoaded', function() {
-    const exerciseStyles = document.createElement('style');
-    exerciseStyles.textContent = `
-        /* Estilos para exercícios */
-        .exercises-list {
-            margin-top: 10px;
-        }
-        
-        .exercise-item {
-            padding: 10px;
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 8px;
-            border-left: 3px solid rgba(255, 255, 255, 0.1);
-            transition: all 0.3s ease;
-        }
-        
-        .exercise-item:hover {
-            background: rgba(255, 255, 255, 0.05);
-            transform: translateX(3px);
-        }
-        
-        .exercise-item.completed {
-            border-left-color: #4CAF50;
-            background: rgba(76, 175, 80, 0.1);
-        }
-        
-        .exercise-check {
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            transition: all 0.3s ease;
-        }
-        
-        .exercise-check:hover {
-            transform: scale(1.1);
-        }
-        
-        .completed-exercise {
-            background: rgba(76, 175, 80, 0.15) !important;
-            border-left: 3px solid #4CAF50 !important;
-        }
-        
-        .text-decoration-line-through {
-            text-decoration: line-through;
-            opacity: 0.8;
-        }
-        
-        /* Botão de marcar todos */
-        #checkAllExercisesBtn {
-            transition: all 0.3s ease;
-        }
-        
-        #checkAllExercisesBtn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
-        }
-    `;
-    document.head.appendChild(exerciseStyles);
-});
-
 // Make loadPage available globally
 window.loadPage = loadPage;
+
+// Export all functions to window object
+window.switchUser = switchUser;
+window.removeUser = removeUser;
+window.editUser = editUser;
+window.addUser = addUser;
+window.openUsersManager = openUsersManager;
+window.exportAllUsersData = exportAllUsersData;
+window.saveToPhone = saveToPhone;
 
 console.log('FitTrack Pro - Aplicativo carregado com sucesso!');
