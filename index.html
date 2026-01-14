@@ -7,134 +7,65 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
-    <link rel="manifest" href="manifest.json">
+    <!-- Remova a linha do manifest.json -->
     <link rel="icon" href="./favicon.ico" type="image/x-icon">
     <style>
-        /* Chart Styles */
-        .simple-weight-chart {
-            background: rgba(255, 255, 255, 0.05);
+        /* Adicione estilos para a seção de usuários no sidebar */
+        .user-section {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .current-user-profile {
+            background: rgba(76, 175, 80, 0.1);
             border-radius: 10px;
             padding: 10px;
-            margin: 10px 0;
-        }
-        
-        .chart-body {
-            display: flex;
-            height: 200px;
-            margin-top: 10px;
-        }
-        
-        .y-axis {
-            width: 50px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding-right: 10px;
-            border-right: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        .y-label {
-            color: #888888;
-            font-size: 12px;
-            text-align: right;
-        }
-        
-        .chart-area {
-            flex: 1;
-            position: relative;
-            margin-left: 10px;
-        }
-        
-        .data-point {
-            position: absolute;
-            width: 12px;
-            height: 12px;
-            background: #4CAF50;
-            border: 2px solid white;
-            border-radius: 50%;
-            transform: translateX(-50%);
-            cursor: pointer;
-            z-index: 2;
-            transition: all 0.3s ease;
-        }
-        
-        .data-point:hover {
-            transform: translateX(-50%) scale(1.5);
-            box-shadow: 0 0 10px #4CAF50;
-        }
-        
-        .data-point:hover .point-tooltip {
-            display: block;
-        }
-        
-        .point-tooltip {
-            display: none;
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.9);
-            color: white;
-            padding: 8px 12px;
-            border-radius: 6px;
-            white-space: nowrap;
-            font-size: 12px;
-            z-index: 10;
-            min-width: 120px;
-            text-align: center;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-        
-        .line-segment {
-            position: absolute;
-            background: #4CAF50;
-            transform-origin: 0 0;
-            z-index: 1;
-            height: 3px;
-        }
-        
-        .x-axis {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 20px;
-            padding-left: 60px;
-            padding-right: 10px;
-            position: relative;
-            height: 20px;
-        }
-        
-        .x-label {
-            color: #888888;
-            font-size: 12px;
-            transform: translateX(-50%);
-            text-align: center;
-            min-width: 40px;
-            position: absolute;
-        }
-        
-        .chart-header {
-            text-align: center;
             margin-bottom: 15px;
         }
         
-        .chart-header h6 {
-            color: #ffffff;
-            font-weight: 600;
-        }
-        
-        .empty-chart-state {
+        .user-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #4CAF50, #FF5722);
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 200px;
-            color: #888888;
+            color: white;
+            font-size: 1.5rem;
+            overflow: hidden;
+            flex-shrink: 0;
         }
         
-        .empty-chart-state i {
-            font-size: 3rem;
-            margin-bottom: 15px;
-            opacity: 0.5;
+        .user-avatar-sm {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #2196F3, #00BCD4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        
+        .user-avatar img, .user-avatar-sm img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .user-item {
+            padding: 10px 15px !important;
+            border-radius: 8px;
+            margin-bottom: 5px;
+        }
+        
+        .user-item:hover {
+            background: rgba(76, 175, 80, 0.15);
         }
         
         /* Toast Styles */
@@ -207,33 +138,29 @@
     </style>
 </head>
 <body>
-    <!-- Navbar -->
+    <!-- Navbar simplificada -->
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
         <div class="container-fluid">
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse">
+            <button class="navbar-toggler" type="button">
                 <span class="navbar-toggler-icon"></span>
             </button>
             
-            <a class="navbar-brand" href="./favicon.ico" data-page="home">
+            <a class="navbar-brand" href="#home" data-page="home">
                 <i class="fas fa-dumbbell me-2"></i>
                 <span class="fw-bold">Sou FIT</span>
             </a>
             
-            <div class="d-flex align-items-center">
-                <div class="dropdown">
-                    <button class="btn btn-outline-light dropdown-toggle" id="userDropdown">
-                        <i class="fas fa-user me-2"></i>
-                        <span class="username">Carregando...</span>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end" id="userMenu"></ul>
-                </div>
-            </div>
+            <!-- Removido o dropdown de usuários -->
         </div>
     </nav>
 
     <!-- Sidebar -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-content">
+            <!-- Seção de usuários será inserida aqui pelo JavaScript -->
+            <div id="userSection"></div>
+            
+            <!-- Menu principal -->
             <ul class="nav flex-column">
                 <li class="nav-item">
                     <a class="nav-link active" href="#home" data-page="home">
