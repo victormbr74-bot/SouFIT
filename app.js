@@ -73,7 +73,7 @@ function initializeApp() {
     }
     
     // Initialize UI
-    updateUserMenu();
+    updateUserSidebar();
     console.log('App inicializado com sucesso!');
 }
 
@@ -360,26 +360,6 @@ function setupEventListeners() {
         });
     });
     
-    // User dropdown
-    const userDropdown = document.getElementById('userDropdown');
-    if (userDropdown) {
-        userDropdown.addEventListener('click', function(e) {
-            e.stopPropagation();
-            updateUserMenu();
-        });
-    }
-    
-    // Close dropdown when clicking outside
-    document.addEventListener('click', function() {
-        const dropdown = document.querySelector('.dropdown-menu.show');
-        if (dropdown) {
-            const dropdownInstance = bootstrap.Dropdown.getInstance(document.getElementById('userDropdown'));
-            if (dropdownInstance) {
-                dropdownInstance.hide();
-            }
-        }
-    });
-    
     // Mobile sidebar toggle
     const navbarToggler = document.querySelector('.navbar-toggler');
     if (navbarToggler) {
@@ -399,110 +379,216 @@ function setupEventListeners() {
     console.log('Event listeners configurados!');
 }
 
-// Update User Menu
-function updateUserMenu() {
-    const userMenu = document.getElementById('userMenu');
-    if (!userMenu) {
-        console.error('Elemento userMenu não encontrado');
-        return;
+// Update User Sidebar Menu - NOVA FUNÇÃO
+function updateUserSidebar() {
+    const userSection = document.getElementById('userSection');
+    if (!userSection) {
+        // Criar a seção de usuários no sidebar
+        const sidebar = document.querySelector('.sidebar-content');
+        if (!sidebar) return;
+        
+        const newUserSection = document.createElement('div');
+        newUserSection.id = 'userSection';
+        newUserSection.className = 'user-section';
+        
+        sidebar.prepend(newUserSection);
     }
     
-    userMenu.innerHTML = '';
+    const userSectionElement = document.getElementById('userSection');
+    userSectionElement.innerHTML = '';
     
-    Object.values(users).forEach(user => {
-        const item = document.createElement('button');
-        item.className = `dropdown-item ${currentUser && currentUser.id === user.id ? 'active' : ''}`;
-        item.innerHTML = `
-            <div class="d-flex align-items-center justify-content-between w-100">
-                <div class="d-flex align-items-center">
-                    <div class="rounded-circle me-2 d-flex align-items-center justify-content-center"
-                        style="width:36px;height:36px;background:${currentUser && currentUser.id === user.id ? 'linear-gradient(45deg, #4CAF50, #FF5722)' : '#2d2d2d'};color:white">
-                        ${profilePics[user.id] ? 
-                            `<img src="${profilePics[user.id]}" alt="${user.name}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` : 
-                            user.profilePic || '👤'}
-                    </div>
-                    <div>
-                        <div class="fw-bold">${user.name}</div>
-                        <small class="text-muted">${user.email}</small>
-                    </div>
+    // Perfil atual
+    if (currentUser) {
+        const currentUserDiv = document.createElement('div');
+        currentUserDiv.className = 'current-user-profile';
+        currentUserDiv.innerHTML = `
+            <div class="d-flex align-items-center mb-3 p-2 bg-dark rounded">
+                <div class="user-avatar me-2">
+                    ${profilePics[currentUser.id] ? 
+                        `<img src="${profilePics[currentUser.id]}" alt="${currentUser.name}" class="profile-img">` :
+                        `<span>${currentUser.profilePic || '👤'}</span>`}
                 </div>
-                ${currentUser && currentUser.id !== user.id ? 
-                    `<button class="btn btn-sm btn-outline-danger ms-2 remove-user-btn" data-id="${user.id}" title="Remover usuário">
-                        <i class="fas fa-times"></i>
-                    </button>` : 
-                    ''}
+                <div class="flex-grow-1">
+                    <div class="fw-bold">${currentUser.name}</div>
+                    <small class="text-muted d-block">${currentUser.email}</small>
+                    <small class="badge bg-primary">${currentUser.experience}</small>
+                </div>
             </div>
         `;
-        item.addEventListener('click', (e) => {
-            if (!e.target.closest('.remove-user-btn')) {
-                e.stopPropagation();
-                e.preventDefault();
-                switchUser(user.id);
+        userSectionElement.appendChild(currentUserDiv);
+    }
+    
+    // Título "Trocar Usuário"
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'px-2 mb-2';
+    titleDiv.innerHTML = '<small class="text-muted fw-bold">TROCAR USUÁRIO</small>';
+    userSectionElement.appendChild(titleDiv);
+    
+    // Lista de usuários
+    Object.values(users).forEach(user => {
+        if (currentUser && user.id === currentUser.id) return; // Não mostrar o atual na lista
+        
+        const userItem = document.createElement('a');
+        userItem.href = '#';
+        userItem.className = 'nav-link user-item';
+        userItem.innerHTML = `
+            <div class="d-flex align-items-center">
+                <div class="user-avatar-sm me-2">
+                    ${profilePics[user.id] ? 
+                        `<img src="${profilePics[user.id]}" alt="${user.name}" class="profile-img-sm">` :
+                        `<span>${user.profilePic || '👤'}</span>`}
+                </div>
+                <div class="flex-grow-1">
+                    <div>${user.name}</div>
+                    <small class="text-muted">${user.email}</small>
+                </div>
+                <div class="ms-2">
+                    <i class="fas fa-sign-in-alt text-primary"></i>
+                </div>
+            </div>
+        `;
+        
+        userItem.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            switchUser(user.id);
+            
+            // Fechar sidebar no mobile
+            if (window.innerWidth <= 768) {
+                document.getElementById('sidebar').classList.remove('active');
             }
         });
-        userMenu.appendChild(item);
+        
+        userSectionElement.appendChild(userItem);
     });
     
-    // Adicionar botão para adicionar usuário
-    const addUserItem = document.createElement('button');
-    addUserItem.className = 'dropdown-item text-success';
+    // Separador
+    const divider = document.createElement('hr');
+    divider.className = 'my-2 mx-2';
+    userSectionElement.appendChild(divider);
+    
+    // Botão para adicionar novo usuário
+    const addUserItem = document.createElement('a');
+    addUserItem.href = '#';
+    addUserItem.className = 'nav-link text-success';
     addUserItem.innerHTML = `
         <div class="d-flex align-items-center">
             <i class="fas fa-user-plus me-3"></i>
             <span>Adicionar Novo Usuário</span>
         </div>
     `;
-    addUserItem.addEventListener('click', (e) => {
-        e.stopPropagation();
+    
+    addUserItem.addEventListener('click', function(e) {
         e.preventDefault();
+        e.stopPropagation();
         addUser();
+        
+        // Fechar sidebar no mobile
+        if (window.innerWidth <= 768) {
+            document.getElementById('sidebar').classList.remove('active');
+        }
     });
-    userMenu.appendChild(addUserItem);
     
-    // Separador
-    const divider = document.createElement('hr');
-    divider.className = 'dropdown-divider';
-    userMenu.appendChild(divider);
+    userSectionElement.appendChild(addUserItem);
     
-    // Botão de gerenciar usuários
-    const manageUsersItem = document.createElement('button');
-    manageUsersItem.className = 'dropdown-item';
+    // Botão para gerenciar usuários
+    const manageUsersItem = document.createElement('a');
+    manageUsersItem.href = '#';
+    manageUsersItem.className = 'nav-link';
     manageUsersItem.innerHTML = `
         <div class="d-flex align-items-center">
             <i class="fas fa-users-cog me-3"></i>
             <span>Gerenciar Usuários</span>
         </div>
     `;
-    manageUsersItem.addEventListener('click', (e) => {
-        e.stopPropagation();
+    
+    manageUsersItem.addEventListener('click', function(e) {
         e.preventDefault();
+        e.stopPropagation();
         openUsersManager();
+        
+        // Fechar sidebar no mobile
+        if (window.innerWidth <= 768) {
+            document.getElementById('sidebar').classList.remove('active');
+        }
     });
-    userMenu.appendChild(manageUsersItem);
     
-    // Update navbar username
-    const userDropdownText = document.querySelector('#userDropdown .username');
-    if (userDropdownText && currentUser) {
-        userDropdownText.textContent = currentUser.name;
+    userSectionElement.appendChild(manageUsersItem);
+    
+    // Atualizar navbar
+    const navbarBrand = document.querySelector('.navbar-brand');
+    if (navbarBrand && currentUser) {
+        navbarBrand.innerHTML = `
+            <i class="fas fa-dumbbell me-2"></i>
+            <span class="fw-bold">${currentUser.name.split(' ')[0]}</span>
+            <small class="ms-2 text-muted" style="font-size: 0.8rem;">Sou FIT</small>
+        `;
+    }
+}
+
+// Switch User - FUNÇÃO PRINCIPAL
+function switchUser(userId) {
+    userId = parseInt(userId);
+    
+    console.log('Tentando trocar para usuário ID:', userId);
+    console.log('Usuários disponíveis:', Object.keys(users));
+    console.log('Usuário solicitado existe?', !!users[userId]);
+    
+    if (!users[userId]) {
+        console.error('Usuário não encontrado:', userId);
+        showToast('Usuário não encontrado', 'error');
+        return;
     }
     
-    // Initialize dropdown
-    const dropdownElement = document.getElementById('userDropdown');
-    if (dropdownElement) {
-        new bootstrap.Dropdown(dropdownElement);
+    const newUser = users[userId];
+    console.log('Trocando para usuário:', newUser.name);
+    
+    // Salvar dados do usuário atual ANTES de trocar
+    if (currentUser) {
+        console.log('Salvando dados do usuário atual:', currentUser.name);
+        localStorage.setItem(`fitTrackWorkouts_${currentUser.id}`, JSON.stringify(workouts));
+        localStorage.setItem(`fitTrackResults_${currentUser.id}`, JSON.stringify(results));
     }
     
-    // Adicionar event listeners para botões de remover
-    setTimeout(() => {
-        document.querySelectorAll('.remove-user-btn').forEach(btn => {
-            btn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                e.preventDefault();
-                const userId = parseInt(this.getAttribute('data-id'));
-                removeUser(userId);
-            });
-        });
-    }, 100);
+    // Definir novo usuário como atual
+    currentUser = newUser;
+    console.log('Novo usuário atual definido:', currentUser.name);
+    
+    // Salvar novo usuário atual
+    localStorage.setItem('fitTrackCurrentUser', JSON.stringify(currentUser));
+    
+    // Recarregar dados do NOVO usuário
+    console.log('Recarregando dados para o novo usuário...');
+    const userIdForLoad = currentUser.id;
+    
+    // Carregar workouts do novo usuário
+    const savedWorkouts = localStorage.getItem(`fitTrackWorkouts_${userIdForLoad}`);
+    if (savedWorkouts) {
+        workouts = JSON.parse(savedWorkouts);
+        console.log(`${workouts.length} treinos carregados para ${currentUser.name}`);
+    } else {
+        workouts = [];
+        console.log('Nenhum treino salvo para o novo usuário');
+    }
+    
+    // Carregar results do novo usuário
+    const savedResults = localStorage.getItem(`fitTrackResults_${userIdForLoad}`);
+    if (savedResults) {
+        results = JSON.parse(savedResults);
+        console.log(`${results.length} resultados carregados para ${currentUser.name}`);
+    } else {
+        results = [];
+        console.log('Nenhum resultado salvo para o novo usuário');
+    }
+    
+    // Atualizar UI
+    updateUserSidebar();
+    
+    // Recarregar página atual
+    const currentHash = window.location.hash.substring(1) || 'home';
+    loadPage(currentHash);
+    
+    showToast(`Usuário alterado para ${currentUser.name}`, 'success');
 }
 
 // Add User
@@ -538,7 +624,7 @@ function addUser() {
     localStorage.setItem(`fitTrackResults_${newId}`, JSON.stringify([]));
     
     saveData();
-    updateUserMenu();
+    updateUserSidebar();
     showToast(`Usuário ${name} adicionado com sucesso!`, 'success');
 }
 
@@ -574,7 +660,7 @@ function removeUser(userId) {
     
     // Salvar a lista de usuários atualizada
     saveData();
-    updateUserMenu();
+    updateUserSidebar();
     
     // Se estiver no modal de gerenciamento, recarregar
     const modal = document.getElementById('usersManagerModal');
@@ -620,7 +706,7 @@ function editUser(userId) {
     }
     
     saveData();
-    updateUserMenu();
+    updateUserSidebar();
     
     // Se estiver no modal de gerenciamento, recarregar
     const modal = document.getElementById('usersManagerModal');
@@ -833,7 +919,7 @@ function importAllUsersData() {
                 
                 // Recarregar dados
                 loadData();
-                updateUserMenu();
+                updateUserSidebar();
                 loadPage('home');
                 
                 showToast('Dados de todos os usuários importados com sucesso!', 'success');
@@ -851,77 +937,6 @@ function importAllUsersData() {
     document.body.appendChild(input);
     input.click();
     document.body.removeChild(input);
-}
-
-// Switch User - FUNÇÃO PRINCIPAL CORRIGIDA
-function switchUser(userId) {
-    userId = parseInt(userId);
-    
-    console.log('Tentando trocar para usuário ID:', userId);
-    console.log('Usuários disponíveis:', Object.keys(users));
-    console.log('Usuário solicitado existe?', !!users[userId]);
-    
-    if (!users[userId]) {
-        console.error('Usuário não encontrado:', userId);
-        showToast('Usuário não encontrado', 'error');
-        return;
-    }
-    
-    const newUser = users[userId];
-    console.log('Trocando para usuário:', newUser.name);
-    
-    // Salvar dados do usuário atual ANTES de trocar
-    if (currentUser) {
-        console.log('Salvando dados do usuário atual:', currentUser.name);
-        localStorage.setItem(`fitTrackWorkouts_${currentUser.id}`, JSON.stringify(workouts));
-        localStorage.setItem(`fitTrackResults_${currentUser.id}`, JSON.stringify(results));
-    }
-    
-    // Definir novo usuário como atual
-    currentUser = newUser;
-    console.log('Novo usuário atual definido:', currentUser.name);
-    
-    // Salvar novo usuário atual
-    localStorage.setItem('fitTrackCurrentUser', JSON.stringify(currentUser));
-    
-    // Recarregar dados do NOVO usuário
-    console.log('Recarregando dados para o novo usuário...');
-    const userIdForLoad = currentUser.id;
-    
-    // Carregar workouts do novo usuário
-    const savedWorkouts = localStorage.getItem(`fitTrackWorkouts_${userIdForLoad}`);
-    if (savedWorkouts) {
-        workouts = JSON.parse(savedWorkouts);
-        console.log(`${workouts.length} treinos carregados para ${currentUser.name}`);
-    } else {
-        workouts = [];
-        console.log('Nenhum treino salvo para o novo usuário');
-    }
-    
-    // Carregar results do novo usuário
-    const savedResults = localStorage.getItem(`fitTrackResults_${userIdForLoad}`);
-    if (savedResults) {
-        results = JSON.parse(savedResults);
-        console.log(`${results.length} resultados carregados para ${currentUser.name}`);
-    } else {
-        results = [];
-        console.log('Nenhum resultado salvo para o novo usuário');
-    }
-    
-    // Fechar dropdown
-    const dropdownInstance = bootstrap.Dropdown.getInstance(document.getElementById('userDropdown'));
-    if (dropdownInstance) {
-        dropdownInstance.hide();
-    }
-    
-    // Atualizar UI
-    updateUserMenu();
-    
-    // Recarregar página atual
-    const currentHash = window.location.hash.substring(1) || 'home';
-    loadPage(currentHash);
-    
-    showToast(`Usuário alterado para ${currentUser.name}`, 'success');
 }
 
 // Page Loading System
@@ -2270,7 +2285,7 @@ function handleProfilePicUpload(event) {
         }
         
         // Update user menu
-        updateUserMenu();
+        updateUserSidebar();
         
         showToast('Foto de perfil atualizada com sucesso!', 'success');
     };
@@ -2410,7 +2425,7 @@ function importData() {
                 users[currentUser.id] = currentUser;
                 
                 saveData();
-                updateUserMenu();
+                updateUserSidebar();
                 loadPage('home');
                 
                 showToast('Dados importados com sucesso!', 'success');
