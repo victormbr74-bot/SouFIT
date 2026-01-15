@@ -1,15 +1,15 @@
 {
-  "name": "FitTrack Pro",
-  "short_name": "FitTrack",
-  "description": "Sistema completo para gerenciamento de treinos e resultados de academia",
+  "name": "Hunter's Gym - Solo Leveling Edition",
+  "short_name": "Hunter's Gym",
+  "description": "Sistema gamificado de treinos e dieta com tema Solo Leveling",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#0a0a0a",
-  "theme_color": "#4CAF50",
+  "background_color": "#0a192f",
+  "theme_color": "#00a8ff",
   "orientation": "portrait",
   "scope": "./",
   "lang": "pt-BR",
-"icons": [
+  "icons": [
     {
       "src": "fit.png",
       "sizes": "192x192",
@@ -23,18 +23,24 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["health", "fitness", "lifestyle"],
+  "categories": ["health", "fitness", "games", "lifestyle"],
   "shortcuts": [
     {
       "name": "Novo Treino",
       "short_name": "Treino",
-      "description": "Adicionar novo treino",
+      "description": "Iniciar novo treino",
       "url": "./index.html#workout"
     },
     {
-      "name": "Nova Medição",
-      "short_name": "Medição",
-      "description": "Registrar nova medição",
+      "name": "Registrar Refeição",
+      "short_name": "Comida",
+      "description": "Registrar alimento consumido",
+      "url": "./index.html#diet"
+    },
+    {
+      "name": "Ver Status",
+      "short_name": "Status",
+      "description": "Ver nível e progresso",
       "url": "./index.html#results"
     }
   ]
