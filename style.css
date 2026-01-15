@@ -29,13 +29,30 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, var(--darker-color) 0%, var(--dark-color) 100%);
+    /* Tema escuro com imagem futurística/tecnológica */
+    background: 
+        /* Overlay azul escuro para tema tecnológico */
+        linear-gradient(135deg, rgba(10, 25, 47, 0.92) 0%, rgba(7, 20, 37, 0.95) 100%),
+        /* Imagem de fundo tecnológica/futurística */
+        url('Solo.jpg') center/cover no-repeat fixed;
     color: var(--text-primary);
     min-height: 100vh;
     line-height: 1.6;
-    background-image: 
-        radial-gradient(circle at 10% 20%, rgba(0, 150, 255, 0.05) 0%, transparent 20%),
-        radial-gradient(circle at 90% 80%, rgba(156, 136, 255, 0.05) 0%, transparent 20%);
+    /* Adiciona um brilho sutil */
+    box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.5);
+}
+
+/* Ajusta os cards para melhor contraste com imagem de fundo */
+.card {
+    background: rgba(10, 25, 47, 0.92); /* Mais opaco para melhor legibilidade */
+    backdrop-filter: blur(10px) saturate(180%);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    transition: all 0.4s ease;
+    margin-bottom: 30px;
+    overflow: hidden;
+    position: relative;
 }
 
 h1, h2, h3, h4, h5, h6 {
