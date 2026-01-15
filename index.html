@@ -4,186 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sou Fit 2026 - Solo Leveling Edition</title>
+    <meta name="description" content="Dashboard fitness com temática Solo Leveling para treinos, dieta e progresso do caçador.">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
     <link rel="icon" href="./favicon.ico" type="image/x-icon">
-    <style>
-        .user-section {
-            padding: 15px;
-            margin-bottom: 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .current-user-profile {
-            background: rgba(0, 150, 255, 0.15);
-            border-radius: 10px;
-            padding: 10px;
-            margin-bottom: 15px;
-            border: 1px solid rgba(0, 150, 255, 0.3);
-        }
-        
-        .user-avatar {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background: linear-gradient(45deg, #00a8ff, #9c88ff);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1.5rem;
-            overflow: hidden;
-            flex-shrink: 0;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-        }
-        
-        .user-avatar-sm {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: linear-gradient(45deg, #8c7ae6, #00a8ff);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1.2rem;
-            overflow: hidden;
-            flex-shrink: 0;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        .user-avatar img, .user-avatar-sm img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        .user-item {
-            padding: 10px 15px !important;
-            border-radius: 8px;
-            margin-bottom: 5px;
-        }
-        
-        .user-item:hover {
-            background: rgba(0, 150, 255, 0.2);
-        }
-        
-        .toast-container {
-            z-index: 9999;
-        }
-        
-        .toast {
-            backdrop-filter: blur(10px);
-            background: rgba(10, 25, 47, 0.95) !important;
-            border: 1px solid rgba(0, 150, 255, 0.3) !important;
-        }
-        
-        .toast-body {
-            color: #ffffff;
-        }
-        
-        .profile-pic {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #00a8ff, #9c88ff);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 2.5rem;
-            font-weight: bold;
-            margin: 0 auto;
-            box-shadow: 0 8px 25px rgba(0, 168, 255, 0.4);
-            border: 3px solid rgba(255, 255, 255, 0.2);
-            overflow: hidden;
-            position: relative;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .profile-pic:hover {
-            transform: scale(1.05);
-            box-shadow: 0 12px 35px rgba(0, 168, 255, 0.6);
-        }
-        
-        .profile-pic input {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            opacity: 0;
-            cursor: pointer;
-        }
-        
-        .profile-pic img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            border-radius: 50%;
-        }
-        
-        .profile-pic-large {
-            display: inline-block;
-        }
-        
-        .profile-pic-large .profile-pic {
-            width: 80px;
-            height: 80px;
-            font-size: 2rem;
-        }
-        
-        /* Solo Leveling Loading Animation */
-        .leveling-loading {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 200px;
-            flex-direction: column;
-        }
-        
-        .hunter-gate {
-            width: 60px;
-            height: 60px;
-            border: 3px solid #00a8ff;
-            border-radius: 50%;
-            position: relative;
-            animation: gate-pulse 2s infinite;
-        }
-        
-        .hunter-gate::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 40px;
-            height: 40px;
-            border: 2px solid #9c88ff;
-            border-radius: 50%;
-            animation: gate-rotate 3s linear infinite;
-        }
-        
-        @keyframes gate-pulse {
-            0%, 100% { box-shadow: 0 0 20px rgba(0, 168, 255, 0.5); }
-            50% { box-shadow: 0 0 40px rgba(0, 168, 255, 0.8); }
-        }
-        
-        @keyframes gate-rotate {
-            0% { transform: translate(-50%, -50%) rotate(0deg); }
-            100% { transform: translate(-50%, -50%) rotate(360deg); }
-        }
-        
-        .level-text {
-            color: #00a8ff;
-            font-size: 1.2rem;
-            margin-top: 15px;
-            text-shadow: 0 0 10px rgba(0, 168, 255, 0.7);
-            font-weight: bold;
-        }
-    </style>
 </head>
 <body>
     <!-- Navbar com tema Solo Leveling -->
@@ -196,7 +21,7 @@
             <a class="navbar-brand" href="#home" data-page="home">
                 <i class="fas fa-dungeon me-2"></i>
                 <span class="fw-bold">HUNTER'S GYM</span>
-                <small class="ms-2 text-neon-blue" style="font-size: 0.8rem;">Solo Leveling Edition</small>
+                <small class="ms-2 text-neon-blue navbar-brand-subtitle">Solo Leveling Edition</small>
             </a>
         </div>
     </nav>
@@ -237,7 +62,7 @@
             </ul>
             
             <!-- Nível do Caçador -->
-            <div class="mt-4 p-3" style="background: rgba(0, 0, 0, 0.3); border-radius: 10px; border: 1px solid rgba(0, 150, 255, 0.3);">
+            <div class="mt-4 p-3 hunter-level-card">
                 <small class="text-neon-blue d-block mb-2">NÍVEL DO CAÇADOR</small>
                 <div id="hunterLevelDisplay">
                     <!-- Carregado pelo JavaScript -->
@@ -255,33 +80,5 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- App JS -->
     <script src="app.js"></script>
-    
-    <script>
-        window.addEventListener('hashchange', function() {
-            const hash = window.location.hash.substring(1);
-            if (hash && window.loadPage) {
-                const validPages = ['home', 'workout', 'diet', 'results', 'profile'];
-                if (validPages.includes(hash)) {
-                    loadPage(hash);
-                    
-                    document.querySelectorAll('.nav-link').forEach(link => {
-                        link.classList.remove('active');
-                        if (link.getAttribute('data-page') === hash) {
-                            link.classList.add('active');
-                        }
-                    });
-                }
-            }
-        });
-        
-        document.addEventListener('DOMContentLoaded', function() {
-            const hash = window.location.hash.substring(1) || 'home';
-            setTimeout(() => {
-                if (window.loadPage) {
-                    loadPage(hash);
-                }
-            }, 100);
-        });
-    </script>
 </body>
 </html>

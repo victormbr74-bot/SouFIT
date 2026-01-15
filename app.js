@@ -9,6 +9,7 @@ let foodLogs = [];
 let hunterLevels = {};
 let achievements = [];
 let dailyQuests = [];
+const validPages = ['home', 'workout', 'diet', 'results', 'profile'];
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', function() {
@@ -17,16 +18,18 @@ document.addEventListener('DOMContentLoaded', function() {
     setupEventListeners();
     
     setTimeout(() => {
-        const hash = window.location.hash.substring(1) || 'home';
+        const hash = getPageFromHash();
         loadPage(hash);
-        
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.classList.remove('active');
-            if (link.getAttribute('data-page') === hash) {
-                link.classList.add('active');
-            }
-        });
+        setActiveNav(hash);
     }, 100);
+});
+
+window.addEventListener('hashchange', function() {
+    const page = getPageFromHash();
+    if (window.loadPage) {
+        loadPage(page);
+        setActiveNav(page);
+    }
 });
 
 // Initialize App Data
@@ -659,22 +662,23 @@ function showAchievementPopup(achievement) {
 function setupEventListeners() {
     console.log('Configurando event listeners...');
     
-    document.querySelectorAll('[data-page]').forEach(link => {
-        link.addEventListener('click', function(e) {
-            e.preventDefault();
-            const page = this.getAttribute('data-page');
-            console.log('Navegando para:', page);
-            loadPage(page);
-            
-            document.querySelectorAll('.nav-link').forEach(nav => nav.classList.remove('active'));
-            this.classList.add('active');
-            
-            window.location.hash = page;
-            
-            if (window.innerWidth <= 768) {
-                document.getElementById('sidebar').classList.remove('active');
-            }
-        });
+    document.body.addEventListener('click', function(event) {
+        const link = event.target.closest('[data-page]');
+        if (!link) return;
+
+        event.preventDefault();
+        const page = link.getAttribute('data-page');
+        if (!page) return;
+
+        console.log('Navegando para:', page);
+        loadPage(page);
+        setActiveNav(page);
+
+        window.location.hash = page;
+
+        if (window.innerWidth <= 768) {
+            document.getElementById('sidebar').classList.remove('active');
+        }
     });
     
     const navbarToggler = document.querySelector('.navbar-toggler');
@@ -692,6 +696,20 @@ function setupEventListeners() {
     });
     
     console.log('Event listeners configurados!');
+}
+
+function getPageFromHash() {
+    const hash = window.location.hash.substring(1);
+    return validPages.includes(hash) ? hash : 'home';
+}
+
+function setActiveNav(page) {
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('data-page') === page) {
+            link.classList.add('active');
+        }
+    });
 }
 
 // Update User Sidebar
@@ -1226,6 +1244,7 @@ function loadPage(page) {
     if (!content) return;
     
     console.log('Carregando página:', page);
+    resetModalState();
     content.innerHTML = '';
     
     switch(page) {
@@ -1258,6 +1277,25 @@ function loadPage(page) {
     }
     
     window.scrollTo(0, 0);
+}
+
+function resetModalState() {
+    if (typeof bootstrap !== 'undefined') {
+        document.querySelectorAll('.modal.show').forEach(modalEl => {
+            const instance = bootstrap.Modal.getInstance(modalEl);
+            if (instance) {
+                instance.hide();
+            } else {
+                modalEl.classList.remove('show');
+                modalEl.style.display = 'none';
+            }
+        });
+    }
+
+    document.body.classList.remove('modal-open');
+    document.body.style.removeProperty('padding-right');
+    document.body.style.removeProperty('overflow');
+    document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
 }
 
 // Home Page
