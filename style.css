@@ -75,15 +75,19 @@ p, span, div {
     text-shadow: 0 0 10px rgba(252, 197, 49, 0.5);
 }
 
-/* Navbar */
+/* Navbar - CORRIGIDA: Adicionado position: fixed */
 .navbar {
     background: linear-gradient(90deg, var(--darker-color) 0%, rgba(10, 25, 47, 0.9) 100%);
     box-shadow: 0 2px 30px rgba(0, 0, 0, 0.7);
     padding: 15px 20px;
     height: 70px;
     border-bottom: 1px solid var(--border-color);
-    position: relative;
+    position: fixed; /* Alterado de relative para fixed */
+    top: 0; /* Fixa no topo */
+    left: 0; /* Alinha à esquerda */
+    right: 0; /* Estende por toda a largura */
     overflow: hidden;
+    z-index: 1030; /* Z-index alto para ficar acima de tudo */
 }
 
 .navbar::before {
@@ -115,16 +119,16 @@ p, span, div {
     text-shadow: 0 0 15px rgba(156, 136, 255, 0.7);
 }
 
-/* Sidebar */
+/* Sidebar - CORRIGIDA: Ajustado top para compensar a navbar fixa */
 .sidebar {
     position: fixed;
-    top: 70px;
+    top: 70px; /* Ajustado para começar após a navbar fixa */
     left: 0;
     width: 280px;
     height: calc(100vh - 70px);
     background: linear-gradient(180deg, rgba(10, 25, 47, 0.95) 0%, rgba(7, 20, 37, 0.98) 100%);
     box-shadow: 5px 0 25px rgba(0, 0, 0, 0.5);
-    z-index: 1000;
+    z-index: 1020; /* Z-index menor que a navbar */
     padding: 20px 0;
     overflow-y: auto;
     border-right: 1px solid var(--border-color);
@@ -193,10 +197,10 @@ p, span, div {
     font-size: 1.2rem;
 }
 
-/* Main Content */
+/* Main Content - CORRIGIDA: Ajustado margin-top para compensar navbar fixa */
 .main-content {
     margin-left: 280px;
-    margin-top: 70px;
+    margin-top: 70px; /* Adicionado para compensar a navbar fixa */
     padding: 30px;
     min-height: calc(100vh - 70px);
     background: transparent;
@@ -557,12 +561,13 @@ p, span, div {
     border: 1px solid rgba(252, 197, 49, 0.3);
 }
 
-/* Responsive Design */
+/* Responsive Design - ATUALIZADO para navbar fixa */
 @media (max-width: 768px) {
     .sidebar {
         transform: translateX(-100%);
         transition: transform 0.3s ease;
         width: 300px;
+        top: 70px; /* Mantém alinhado com navbar fixa */
     }
     
     .sidebar.active {
@@ -572,7 +577,7 @@ p, span, div {
     .main-content {
         margin-left: 0;
         padding: 20px;
-        margin-top: 70px;
+        margin-top: 70px; /* Mantém margin-top para navbar fixa */
     }
     
     .navbar-toggler {
