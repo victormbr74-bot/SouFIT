@@ -3,14 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sou Fit 2026</title>
+    <title>Sou Fit 2026 - Solo Leveling Edition</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
-    <!-- Remova a linha do manifest.json -->
     <link rel="icon" href="./favicon.ico" type="image/x-icon">
     <style>
-        /* Adicione estilos para a seção de usuários no sidebar */
         .user-section {
             padding: 15px;
             margin-bottom: 20px;
@@ -18,17 +16,18 @@
         }
         
         .current-user-profile {
-            background: rgba(76, 175, 80, 0.1);
+            background: rgba(0, 150, 255, 0.15);
             border-radius: 10px;
             padding: 10px;
             margin-bottom: 15px;
+            border: 1px solid rgba(0, 150, 255, 0.3);
         }
         
         .user-avatar {
             width: 50px;
             height: 50px;
             border-radius: 50%;
-            background: linear-gradient(45deg, #4CAF50, #FF5722);
+            background: linear-gradient(45deg, #00a8ff, #9c88ff);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -36,13 +35,14 @@
             font-size: 1.5rem;
             overflow: hidden;
             flex-shrink: 0;
+            border: 2px solid rgba(255, 255, 255, 0.3);
         }
         
         .user-avatar-sm {
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            background: linear-gradient(45deg, #2196F3, #00BCD4);
+            background: linear-gradient(45deg, #8c7ae6, #00a8ff);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -50,6 +50,7 @@
             font-size: 1.2rem;
             overflow: hidden;
             flex-shrink: 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
         
         .user-avatar img, .user-avatar-sm img {
@@ -65,30 +66,28 @@
         }
         
         .user-item:hover {
-            background: rgba(76, 175, 80, 0.15);
+            background: rgba(0, 150, 255, 0.2);
         }
         
-        /* Toast Styles */
         .toast-container {
             z-index: 9999;
         }
         
         .toast {
             backdrop-filter: blur(10px);
-            background: rgba(30, 30, 30, 0.95) !important;
-            border: 1px solid rgba(76, 175, 80, 0.3) !important;
+            background: rgba(10, 25, 47, 0.95) !important;
+            border: 1px solid rgba(0, 150, 255, 0.3) !important;
         }
         
         .toast-body {
             color: #ffffff;
         }
         
-        /* Profile Picture Styles */
         .profile-pic {
             width: 100px;
             height: 100px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #4CAF50, #2196F3);
+            background: linear-gradient(135deg, #00a8ff, #9c88ff);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -96,7 +95,7 @@
             font-size: 2.5rem;
             font-weight: bold;
             margin: 0 auto;
-            box-shadow: 0 8px 25px rgba(76, 175, 80, 0.3);
+            box-shadow: 0 8px 25px rgba(0, 168, 255, 0.4);
             border: 3px solid rgba(255, 255, 255, 0.2);
             overflow: hidden;
             position: relative;
@@ -106,7 +105,7 @@
         
         .profile-pic:hover {
             transform: scale(1.05);
-            box-shadow: 0 12px 35px rgba(76, 175, 80, 0.4);
+            box-shadow: 0 12px 35px rgba(0, 168, 255, 0.6);
         }
         
         .profile-pic input {
@@ -135,10 +134,59 @@
             height: 80px;
             font-size: 2rem;
         }
+        
+        /* Solo Leveling Loading Animation */
+        .leveling-loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+            flex-direction: column;
+        }
+        
+        .hunter-gate {
+            width: 60px;
+            height: 60px;
+            border: 3px solid #00a8ff;
+            border-radius: 50%;
+            position: relative;
+            animation: gate-pulse 2s infinite;
+        }
+        
+        .hunter-gate::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            border: 2px solid #9c88ff;
+            border-radius: 50%;
+            animation: gate-rotate 3s linear infinite;
+        }
+        
+        @keyframes gate-pulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(0, 168, 255, 0.5); }
+            50% { box-shadow: 0 0 40px rgba(0, 168, 255, 0.8); }
+        }
+        
+        @keyframes gate-rotate {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+        
+        .level-text {
+            color: #00a8ff;
+            font-size: 1.2rem;
+            margin-top: 15px;
+            text-shadow: 0 0 10px rgba(0, 168, 255, 0.7);
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
-    <!-- Navbar simplificada -->
+    <!-- Navbar com tema Solo Leveling -->
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
         <div class="container-fluid">
             <button class="navbar-toggler" type="button">
@@ -146,18 +194,17 @@
             </button>
             
             <a class="navbar-brand" href="#home" data-page="home">
-                <i class="fas fa-dumbbell me-2"></i>
-                <span class="fw-bold">Sou FIT</span>
+                <i class="fas fa-dungeon me-2"></i>
+                <span class="fw-bold">HUNTER'S GYM</span>
+                <small class="ms-2 text-neon-blue" style="font-size: 0.8rem;">Solo Leveling Edition</small>
             </a>
-            
-            <!-- Removido o dropdown de usuários -->
         </div>
     </nav>
 
     <!-- Sidebar -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-content">
-            <!-- Seção de usuários será inserida aqui pelo JavaScript -->
+            <!-- Seção de usuários -->
             <div id="userSection"></div>
             
             <!-- Menu principal -->
@@ -173,16 +220,29 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link" href="#diet" data-page="diet">
+                        <i class="fas fa-utensils me-3"></i>Dieta do Caçador
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link" href="#results" data-page="results">
-                        <i class="fas fa-chart-line me-3"></i>Resultados
+                        <i class="fas fa-chart-line me-3"></i>Status
                     </a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="#profile" data-page="profile">
-                        <i class="fas fa-user me-3"></i>Perfil
+                        <i class="fas fa-user me-3"></i>Perfil do Caçador
                     </a>
                 </li>
             </ul>
+            
+            <!-- Nível do Caçador -->
+            <div class="mt-4 p-3" style="background: rgba(0, 0, 0, 0.3); border-radius: 10px; border: 1px solid rgba(0, 150, 255, 0.3);">
+                <small class="text-neon-blue d-block mb-2">NÍVEL DO CAÇADOR</small>
+                <div id="hunterLevelDisplay">
+                    <!-- Carregado pelo JavaScript -->
+                </div>
+            </div>
         </div>
     </div>
 
@@ -197,15 +257,13 @@
     <script src="app.js"></script>
     
     <script>
-        // Adicionar redirecionamento de hash para páginas
         window.addEventListener('hashchange', function() {
             const hash = window.location.hash.substring(1);
             if (hash && window.loadPage) {
-                const validPages = ['home', 'workout', 'results', 'profile'];
+                const validPages = ['home', 'workout', 'diet', 'results', 'profile'];
                 if (validPages.includes(hash)) {
                     loadPage(hash);
                     
-                    // Atualizar menu ativo
                     document.querySelectorAll('.nav-link').forEach(link => {
                         link.classList.remove('active');
                         if (link.getAttribute('data-page') === hash) {
@@ -216,7 +274,6 @@
             }
         });
         
-        // Inicializar com hash atual
         document.addEventListener('DOMContentLoaded', function() {
             const hash = window.location.hash.substring(1) || 'home';
             setTimeout(() => {
