@@ -8,6 +8,8 @@
     --light-color: #f8f9fa;
     --gray-color: #1a2a3a;
     --card-bg: rgba(10, 25, 47, 0.85);
+    --card-bg-light: rgba(10, 25, 47, 0.75);
+    --card-bg-dark: rgba(10, 25, 47, 0.95);
     --text-primary: #e6f1ff;
     --text-secondary: #a8b2d1;
     --text-muted: #8892b0;
@@ -82,12 +84,12 @@ p, span, div {
     padding: 15px 20px;
     height: 70px;
     border-bottom: 1px solid var(--border-color);
-    position: fixed; /* Alterado de relative para fixed */
-    top: 0; /* Fixa no topo */
-    left: 0; /* Alinha à esquerda */
-    right: 0; /* Estende por toda a largura */
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
     overflow: hidden;
-    z-index: 1030; /* Z-index alto para ficar acima de tudo */
+    z-index: 1030;
 }
 
 .navbar::before {
@@ -122,13 +124,13 @@ p, span, div {
 /* Sidebar - CORRIGIDA: Ajustado top para compensar a navbar fixa */
 .sidebar {
     position: fixed;
-    top: 70px; /* Ajustado para começar após a navbar fixa */
+    top: 70px;
     left: 0;
     width: 280px;
     height: calc(100vh - 70px);
     background: linear-gradient(180deg, rgba(10, 25, 47, 0.95) 0%, rgba(7, 20, 37, 0.98) 100%);
     box-shadow: 5px 0 25px rgba(0, 0, 0, 0.5);
-    z-index: 1020; /* Z-index menor que a navbar */
+    z-index: 1020;
     padding: 20px 0;
     overflow-y: auto;
     border-right: 1px solid var(--border-color);
@@ -200,13 +202,13 @@ p, span, div {
 /* Main Content - CORRIGIDA: Ajustado margin-top para compensar navbar fixa */
 .main-content {
     margin-left: 280px;
-    margin-top: 70px; /* Adicionado para compensar a navbar fixa */
+    margin-top: 70px;
     padding: 30px;
     min-height: calc(100vh - 70px);
     background: transparent;
 }
 
-/* Cards */
+/* Cards - ATUALIZADO: Padronização de cores */
 .card {
     background: var(--card-bg);
     backdrop-filter: blur(15px);
@@ -242,7 +244,7 @@ p, span, div {
 }
 
 .card-header {
-    background: linear-gradient(90deg, rgba(0, 168, 255, 0.2), rgba(156, 136, 255, 0.2));
+    background: rgba(0, 168, 255, 0.1);
     color: var(--text-primary);
     padding: 25px;
     border-radius: 20px 20px 0 0;
@@ -256,6 +258,157 @@ p, span, div {
 .card-body {
     padding: 30px;
     color: var(--text-secondary);
+}
+
+/* Diet Card Styles - ATUALIZADO: Padronizado com card-bg */
+.diet-card {
+    background: var(--card-bg);
+    border: 1px solid rgba(76, 209, 55, 0.3);
+    border-radius: 15px;
+    transition: all 0.3s;
+}
+
+.diet-card:hover {
+    border-color: var(--neon-green);
+    box-shadow: 0 0 30px rgba(76, 209, 55, 0.2);
+}
+
+.diet-item {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s;
+}
+
+.diet-item:hover {
+    background: rgba(0, 168, 255, 0.1);
+    transform: translateX(5px);
+}
+
+.diet-item.completed {
+    border-color: var(--neon-green);
+    background: rgba(76, 209, 55, 0.1);
+}
+
+.diet-item.completed .food-name {
+    text-decoration: line-through;
+    color: var(--neon-green);
+}
+
+/* Quest Card Styles - ATUALIZADO: Padronizado com card-bg */
+.quest-card {
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 15px;
+    position: relative;
+    overflow: hidden;
+}
+
+.quest-card.completed {
+    border-color: var(--neon-green);
+    background: rgba(76, 209, 55, 0.1);
+}
+
+.quest-card::before {
+    content: 'QUEST';
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--neon-blue);
+    letter-spacing: 2px;
+}
+
+.quest-reward {
+    background: rgba(252, 197, 49, 0.2);
+    border-radius: 10px;
+    padding: 10px;
+    margin-top: 10px;
+    border: 1px solid rgba(252, 197, 49, 0.3);
+}
+
+/* Dashboard Card Styles - ATUALIZADO: Padronizado com card-bg */
+.dashboard-card {
+    background: var(--card-bg);
+    border-radius: 20px;
+    padding: 25px;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s;
+}
+
+.dashboard-card:hover {
+    border-color: var(--neon-blue);
+    box-shadow: 0 0 40px rgba(0, 168, 255, 0.2);
+}
+
+/* Stat Card Styles - ATUALIZADO: Padronizado com card-bg */
+.stat-card {
+    background: var(--card-bg);
+    border: 1px solid rgba(76, 175, 80, 0.2);
+    border-radius: 16px;
+    text-align: center;
+    height: 100%;
+}
+
+.stat-card .card-body {
+    padding: 25px;
+}
+
+.stat-card h2 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 5px;
+}
+
+.stat-card h6 {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-bottom: 15px;
+}
+
+.stat-icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(76, 175, 80, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    color: var(--primary-color);
+    font-size: 1.5rem;
+}
+
+/* Welcome Card - ATUALIZADO: Padronizado com card-bg */
+.welcome-card {
+    background: var(--card-bg);
+    border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+/* Achievement Card Styles - ATUALIZADO: Padronizado com card-bg */
+.achievement-card {
+    background: var(--card-bg);
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.achievement-card.unlocked {
+    border-color: var(--neon-green);
+    background: rgba(76, 209, 55, 0.1);
+}
+
+.achievement-card.locked {
+    opacity: 0.6;
+    filter: grayscale(0.5);
 }
 
 /* Buttons */
@@ -391,43 +544,6 @@ p, span, div {
     text-shadow: 0 0 20px rgba(255, 107, 107, 0.5);
 }
 
-/* Diet Card Styles */
-.diet-card {
-    background: rgba(10, 25, 47, 0.9);
-    border: 1px solid rgba(76, 209, 55, 0.3);
-    border-radius: 15px;
-    transition: all 0.3s;
-}
-
-.diet-card:hover {
-    border-color: var(--neon-green);
-    box-shadow: 0 0 30px rgba(76, 209, 55, 0.2);
-}
-
-.diet-item {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 10px;
-    padding: 15px;
-    margin-bottom: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    transition: all 0.3s;
-}
-
-.diet-item:hover {
-    background: rgba(0, 168, 255, 0.1);
-    transform: translateX(5px);
-}
-
-.diet-item.completed {
-    border-color: var(--neon-green);
-    background: rgba(76, 209, 55, 0.1);
-}
-
-.diet-item.completed .food-name {
-    text-decoration: line-through;
-    color: var(--neon-green);
-}
-
 /* Stats Grid */
 .stats-grid {
     display: grid;
@@ -526,48 +642,13 @@ p, span, div {
     border: 1px solid rgba(156, 136, 255, 0.3);
 }
 
-/* Quest Styles */
-.quest-card {
-    background: rgba(0, 0, 0, 0.4);
-    border: 2px solid var(--border-color);
-    border-radius: 15px;
-    padding: 20px;
-    margin-bottom: 15px;
-    position: relative;
-    overflow: hidden;
-}
-
-.quest-card.completed {
-    border-color: var(--neon-green);
-    background: rgba(76, 209, 55, 0.1);
-}
-
-.quest-card::before {
-    content: 'QUEST';
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    font-size: 0.7rem;
-    font-weight: 700;
-    color: var(--neon-blue);
-    letter-spacing: 2px;
-}
-
-.quest-reward {
-    background: rgba(252, 197, 49, 0.2);
-    border-radius: 10px;
-    padding: 10px;
-    margin-top: 10px;
-    border: 1px solid rgba(252, 197, 49, 0.3);
-}
-
 /* Responsive Design - ATUALIZADO para navbar fixa */
 @media (max-width: 768px) {
     .sidebar {
         transform: translateX(-100%);
         transition: transform 0.3s ease;
         width: 300px;
-        top: 70px; /* Mantém alinhado com navbar fixa */
+        top: 70px;
     }
     
     .sidebar.active {
@@ -577,7 +658,7 @@ p, span, div {
     .main-content {
         margin-left: 0;
         padding: 20px;
-        margin-top: 70px; /* Mantém margin-top para navbar fixa */
+        margin-top: 70px;
     }
     
     .navbar-toggler {
@@ -675,19 +756,6 @@ p, span, div {
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 25px;
     margin: 25px 0;
-}
-
-.dashboard-card {
-    background: rgba(10, 25, 47, 0.9);
-    border-radius: 20px;
-    padding: 25px;
-    border: 1px solid var(--border-color);
-    transition: all 0.3s;
-}
-
-.dashboard-card:hover {
-    border-color: var(--neon-blue);
-    box-shadow: 0 0 40px rgba(0, 168, 255, 0.2);
 }
 
 /* Nutritional Stats */
@@ -1107,52 +1175,6 @@ p, span, div {
     font-weight: 600;
 }
 
-/* Stat Cards */
-.stat-card {
-    background: linear-gradient(135deg, rgba(76, 175, 80, 0.1), rgba(33, 150, 243, 0.1));
-    border: 1px solid rgba(76, 175, 80, 0.2);
-    border-radius: 16px;
-    text-align: center;
-    height: 100%;
-}
-
-.stat-card .card-body {
-    padding: 25px;
-}
-
-.stat-card h2 {
-    font-size: 2.5rem;
-    font-weight: 700;
-    margin-bottom: 5px;
-}
-
-.stat-card h6 {
-    font-size: 0.9rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--text-muted);
-    margin-bottom: 15px;
-}
-
-.stat-icon {
-    width: 60px;
-    height: 60px;
-    background: rgba(76, 175, 80, 0.2);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 20px;
-    color: var(--primary-color);
-    font-size: 1.5rem;
-}
-
-/* Welcome Card */
-.welcome-card {
-    background: linear-gradient(135deg, rgba(76, 175, 80, 0.15), rgba(33, 150, 243, 0.15));
-    border: 1px solid rgba(76, 175, 80, 0.3);
-}
-
 /* Achievement Grid */
 .achievements-grid {
     display: grid;
@@ -1192,24 +1214,6 @@ p, span, div {
     justify-content: center;
     margin-right: 10px;
     font-size: 1.2rem;
-}
-
-.achievement-card {
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 10px;
-    padding: 15px;
-    margin-bottom: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.achievement-card.unlocked {
-    border-color: var(--neon-green);
-    background: rgba(76, 209, 55, 0.1);
-}
-
-.achievement-card.locked {
-    opacity: 0.6;
-    filter: grayscale(0.5);
 }
 
 .achievement-icon-lg {
