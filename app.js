@@ -2606,6 +2606,35 @@ function normalizeExerciseIds() {
         return;
     }
 
+    const timestamp = Date.now();
+    workouts = workouts.map((workout, workoutIndex) => {
+        const safeWorkout = workout && typeof workout === 'object' ? { ...workout } : {};
+        safeWorkout.id = safeWorkout.id || timestamp + workoutIndex;
+        safeWorkout.name = safeWorkout.name || 'Treino';
+        safeWorkout.day = safeWorkout.day || 'Seg';
+        safeWorkout.duration = safeWorkout.duration || '60 min';
+        safeWorkout.completed = Boolean(safeWorkout.completed);
+        safeWorkout.xp = Number.isFinite(safeWorkout.xp) ? safeWorkout.xp : 25;
+
+        if (!Array.isArray(safeWorkout.exercises)) {
+            safeWorkout.exercises = [];
+        }
+
+        safeWorkout.exercises = safeWorkout.exercises.map((exercise, index) => {
+            const safeExercise = exercise && typeof exercise === 'object' ? { ...exercise } : {};
+            safeExercise.id = safeExercise.id || `ex-${safeWorkout.id}-${index}-${timestamp}`;
+            safeExercise.name = (safeExercise.name || '').toString();
+            safeExercise.sets = (safeExercise.sets || '3x12').toString();
+            safeExercise.completed = Boolean(safeExercise.completed);
+            return safeExercise;
+        });
+
+        return safeWorkout;
+    });
+
+    saveData();
+}
+
 function initSpeedMap() {
     if (speedTracking.map || typeof L === 'undefined') return;
 
@@ -2786,35 +2815,6 @@ function haversineDistanceKm(lat1, lon1, lat2, lon2) {
         Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
-}
-
-    const timestamp = Date.now();
-    workouts = workouts.map((workout, workoutIndex) => {
-        const safeWorkout = workout && typeof workout === 'object' ? { ...workout } : {};
-        safeWorkout.id = safeWorkout.id || timestamp + workoutIndex;
-        safeWorkout.name = safeWorkout.name || 'Treino';
-        safeWorkout.day = safeWorkout.day || 'Seg';
-        safeWorkout.duration = safeWorkout.duration || '60 min';
-        safeWorkout.completed = Boolean(safeWorkout.completed);
-        safeWorkout.xp = Number.isFinite(safeWorkout.xp) ? safeWorkout.xp : 25;
-
-        if (!Array.isArray(safeWorkout.exercises)) {
-            safeWorkout.exercises = [];
-        }
-
-        safeWorkout.exercises = safeWorkout.exercises.map((exercise, index) => {
-            const safeExercise = exercise && typeof exercise === 'object' ? { ...exercise } : {};
-            safeExercise.id = safeExercise.id || `ex-${safeWorkout.id}-${index}-${timestamp}`;
-            safeExercise.name = (safeExercise.name || '').toString();
-            safeExercise.sets = (safeExercise.sets || '3x12').toString();
-            safeExercise.completed = Boolean(safeExercise.completed);
-            return safeExercise;
-        });
-
-        return safeWorkout;
-    });
-
-    saveData();
 }
 
 // Setup Workout Events
