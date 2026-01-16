@@ -1827,7 +1827,10 @@ function getSpeedPage() {
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <h3 class="mb-0"><i class="fas fa-person-running me-2"></i>Speed</h3>
+                            <div class="d-flex align-items-center gap-3">
+                                <h3 class="mb-0"><i class="fas fa-person-running me-2"></i>Speed</h3>
+                                <span class="badge bg-secondary" id="speedStatus">Parado</span>
+                            </div>
                             <div class="d-flex gap-2">
                                 <button class="btn btn-success" id="speedStartBtn" type="button" onclick="startSpeedTracking()">
                                     <i class="fas fa-play me-2"></i>Iniciar
@@ -2626,21 +2629,18 @@ function initSpeedMap() {
 }
 
 function startSpeedTracking() {
-    if (!navigator.geolocation) {
-        showToast('Geolocalizacao nao suportada no navegador', 'error');
-        return;
-    }
-
     if (speedTracking.active) return;
     speedTracking.active = true;
     speedTracking.startTime = speedTracking.startTime || Date.now();
+    setSpeedStatus('Ativo', 'bg-success');
+    updateSpeedControls();
+    showToast('Rastreamento iniciado', 'info');
 
-    const startBtn = document.getElementById('speedStartBtn');
-    const pauseBtn = document.getElementById('speedPauseBtn');
-    const stopBtn = document.getElementById('speedStopBtn');
-    if (startBtn) startBtn.disabled = true;
-    if (pauseBtn) pauseBtn.disabled = false;
-    if (stopBtn) stopBtn.disabled = false;
+    if (!navigator.geolocation) {
+        showToast('Geolocalizacao nao suportada no navegador', 'error');
+        stopSpeedTracking();
+        return;
+    }
 
     speedTracking.watchId = navigator.geolocation.watchPosition(
         handleSpeedPosition,
@@ -2660,6 +2660,7 @@ function startSpeedTracking() {
 function pauseSpeedTracking() {
     if (!speedTracking.active) return;
     speedTracking.active = false;
+    setSpeedStatus('Pausado', 'bg-warning');
 
     if (speedTracking.watchId !== null) {
         navigator.geolocation.clearWatch(speedTracking.watchId);
@@ -2671,16 +2672,13 @@ function pauseSpeedTracking() {
         speedTracking.timerId = null;
     }
 
-    const startBtn = document.getElementById('speedStartBtn');
-    const pauseBtn = document.getElementById('speedPauseBtn');
-    if (startBtn) startBtn.disabled = false;
-    if (pauseBtn) pauseBtn.disabled = true;
+    updateSpeedControls();
 }
 
 function stopSpeedTracking() {
     pauseSpeedTracking();
-    const stopBtn = document.getElementById('speedStopBtn');
-    if (stopBtn) stopBtn.disabled = true;
+    setSpeedStatus('Finalizado', 'bg-danger');
+    updateSpeedControls();
 }
 
 function resetSpeedTracking() {
@@ -2689,6 +2687,7 @@ function resetSpeedTracking() {
     speedTracking.totalDistance = 0;
     speedTracking.lastXpKm = 0;
     speedTracking.startTime = null;
+    setSpeedStatus('Parado', 'bg-secondary');
 
     if (speedTracking.polyline) {
         speedTracking.polyline.setLatLngs([]);
@@ -2908,6 +2907,7 @@ function setupDietEvents() {
 function setupSpeedEvents() {
     initSpeedMap();
     updateSpeedStats();
+    updateSpeedControls();
 
     const startBtn = document.getElementById('speedStartBtn');
     const pauseBtn = document.getElementById('speedPauseBtn');
@@ -2918,6 +2918,24 @@ function setupSpeedEvents() {
     if (pauseBtn) pauseBtn.addEventListener('click', pauseSpeedTracking);
     if (stopBtn) stopBtn.addEventListener('click', stopSpeedTracking);
     if (resetBtn) resetBtn.addEventListener('click', resetSpeedTracking);
+}
+
+function updateSpeedControls() {
+    const startBtn = document.getElementById('speedStartBtn');
+    const pauseBtn = document.getElementById('speedPauseBtn');
+    const stopBtn = document.getElementById('speedStopBtn');
+    const isActive = speedTracking.active;
+
+    if (startBtn) startBtn.disabled = isActive;
+    if (pauseBtn) pauseBtn.disabled = !isActive;
+    if (stopBtn) stopBtn.disabled = !isActive;
+}
+
+function setSpeedStatus(label, className) {
+    const statusEl = document.getElementById('speedStatus');
+    if (!statusEl) return;
+    statusEl.textContent = label;
+    statusEl.className = `badge ${className}`;
 }
 
 // Setup Results Events
