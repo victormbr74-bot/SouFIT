@@ -428,6 +428,26 @@ p, span, div {
     background: transparent;
 }
 
+.workout-card-body {
+    max-height: calc(100dvh - 230px);
+    overflow-y: auto;
+    padding-right: 8px;
+    scrollbar-gutter: stable;
+}
+
+.workout-list-scroll {
+    min-height: 120px;
+}
+
+.workout-card-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.workout-card-body::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+    border-radius: 10px;
+}
+
 /* Cards - ATUALIZADO: Padronização de cores */
 .card {
     background: var(--card-bg);
@@ -896,6 +916,10 @@ p, span, div {
     
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
+    }
+
+    .workout-card-body {
+        max-height: calc(100dvh - 200px);
     }
 }
 

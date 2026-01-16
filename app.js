@@ -10,6 +10,7 @@ let hunterLevels = {};
 let achievements = [];
 let dailyQuests = [];
 const validPages = ['home', 'workout', 'diet', 'results', 'profile'];
+let isInitializing = false;
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', function() {
@@ -35,6 +36,7 @@ window.addEventListener('hashchange', function() {
 // Initialize App Data
 function initializeApp() {
     console.log('Inicializando dados do app...');
+    isInitializing = true;
     
     const savedUsers = localStorage.getItem('fitTrackUsers');
     if (savedUsers) {
@@ -80,6 +82,7 @@ function initializeApp() {
     initializeHunterLevels();
     updateUserSidebar();
     updateHunterLevelDisplay();
+    isInitializing = false;
     console.log('App inicializado com sucesso!');
 }
 
@@ -139,20 +142,23 @@ function loadData() {
 // Load Diet Data
 function loadDietData() {
     try {
+        ensureCurrentUser();
         const userId = currentUser?.id || 1;
         const savedDiets = localStorage.getItem(`fitTrackDiets_${userId}`);
         const savedFoodLogs = localStorage.getItem(`fitTrackFoodLogs_${userId}`);
-        
+
         if (savedDiets) {
-            diets = JSON.parse(savedDiets);
+            const parsedDiets = JSON.parse(savedDiets);
+            diets = Array.isArray(parsedDiets) ? parsedDiets : [];
             console.log(`${diets.length} dietas carregadas`);
         } else {
             diets = getDefaultDiets();
             console.log('Dietas padrão carregadas:', diets.length);
         }
-        
+
         if (savedFoodLogs) {
-            foodLogs = JSON.parse(savedFoodLogs);
+            const parsedLogs = JSON.parse(savedFoodLogs);
+            foodLogs = Array.isArray(parsedLogs) ? parsedLogs : [];
             console.log(`${foodLogs.length} registros de comida carregados`);
         } else {
             foodLogs = [];
@@ -335,6 +341,7 @@ function updateHunterLevelDisplay() {
 // Save Data
 function saveData() {
     try {
+        if (isInitializing) return;
         if (!currentUser) return;
         
         localStorage.setItem('fitTrackUsers', JSON.stringify(users));
@@ -358,9 +365,12 @@ function saveData() {
 // Save Diet Data
 function saveDietData() {
     try {
-        if (!currentUser) return;
-        
-        const userId = currentUser.id;
+        if (isInitializing) return;
+        ensureCurrentUser();
+        const fallbackUserId = Object.keys(users || {})[0];
+        const userId = currentUser?.id || (fallbackUserId ? parseInt(fallbackUserId, 10) : null);
+        if (!userId) return;
+
         localStorage.setItem(`fitTrackDiets_${userId}`, JSON.stringify(diets));
         localStorage.setItem(`fitTrackFoodLogs_${userId}`, JSON.stringify(foodLogs));
         
@@ -1688,8 +1698,8 @@ function getWorkoutPage() {
                                 </button>
                             </div>
                         </div>
-                        <div class="card-body">
-                            <div id="workoutListContainer"></div>
+                        <div class="card-body workout-card-body">
+                            <div id="workoutListContainer" class="workout-list-scroll"></div>
                         </div>
                     </div>
                 </div>
@@ -2469,6 +2479,16 @@ function getBMIBadgeClass(bmi) {
     return 'bg-danger';
 }
 
+function ensureCurrentUser() {
+    if (currentUser) return;
+
+    const firstUserId = Object.keys(users || {})[0];
+    if (firstUserId && users[firstUserId]) {
+        currentUser = users[firstUserId];
+        localStorage.setItem('fitTrackCurrentUser', JSON.stringify(currentUser));
+    }
+}
+
 function getDayName(abbreviation) {
     const days = {
         'Seg': 'Segunda-feira',
@@ -2484,13 +2504,37 @@ function getDayName(abbreviation) {
 
 // Normalize Exercise IDs
 function normalizeExerciseIds() {
-    workouts.forEach(workout => {
-        workout.exercises.forEach((exercise, index) => {
-            if (!exercise.id || typeof exercise.id === 'undefined') {
-                exercise.id = `ex-${workout.id}-${index}-${Date.now()}`;
-            }
+    if (!Array.isArray(workouts)) {
+        workouts = [];
+        return;
+    }
+
+    const timestamp = Date.now();
+    workouts = workouts.map((workout, workoutIndex) => {
+        const safeWorkout = workout && typeof workout === 'object' ? { ...workout } : {};
+        safeWorkout.id = safeWorkout.id || timestamp + workoutIndex;
+        safeWorkout.name = safeWorkout.name || 'Treino';
+        safeWorkout.day = safeWorkout.day || 'Seg';
+        safeWorkout.duration = safeWorkout.duration || '60 min';
+        safeWorkout.completed = Boolean(safeWorkout.completed);
+        safeWorkout.xp = Number.isFinite(safeWorkout.xp) ? safeWorkout.xp : 25;
+
+        if (!Array.isArray(safeWorkout.exercises)) {
+            safeWorkout.exercises = [];
+        }
+
+        safeWorkout.exercises = safeWorkout.exercises.map((exercise, index) => {
+            const safeExercise = exercise && typeof exercise === 'object' ? { ...exercise } : {};
+            safeExercise.id = safeExercise.id || `ex-${safeWorkout.id}-${index}-${timestamp}`;
+            safeExercise.name = (safeExercise.name || '').toString();
+            safeExercise.sets = (safeExercise.sets || '3x12').toString();
+            safeExercise.completed = Boolean(safeExercise.completed);
+            return safeExercise;
         });
+
+        return safeWorkout;
     });
+
     saveData();
 }
 
@@ -2565,7 +2609,12 @@ function setupDietEvents() {
     const createDietBtn = document.getElementById('createDietBtn');
     if (createDietBtn) {
         createDietBtn.addEventListener('click', () => {
-            createNewDiet();
+            const modalElement = document.getElementById('dietModal');
+            if (modalElement) {
+                const modal = new bootstrap.Modal(modalElement);
+                modal.show();
+                loadDietManagement();
+            }
         });
     }
     
@@ -2832,12 +2881,14 @@ function saveWorkout() {
     }
     
     const exercises = [];
-    document.querySelectorAll('.exercise-item').forEach(item => {
+    const exercisesContainer = document.getElementById('exercisesContainer');
+    const exerciseItems = exercisesContainer ? exercisesContainer.querySelectorAll('.exercise-item') : [];
+    exerciseItems.forEach(item => {
         const nameInput = item.querySelector('.exercise-name');
         const setsInput = item.querySelector('.exercise-sets');
         
         if (nameInput?.value.trim()) {
-            const uniqueId = `ex-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            const uniqueId = `ex-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
             exercises.push({
                 id: uniqueId,
                 name: nameInput.value.trim(),
@@ -2874,7 +2925,6 @@ function saveWorkout() {
         workoutForm.reset();
     }
     
-    const exercisesContainer = document.getElementById('exercisesContainer');
     if (exercisesContainer) {
         exercisesContainer.innerHTML = `
             <div class="exercise-item mb-2">
@@ -3466,8 +3516,9 @@ function renderWorkoutList() {
                     </div>
                     <div class="card-body">
                         ${dayWorkouts.length > 0 ? dayWorkouts.map(workout => {
-                            const completedExercises = workout.exercises.filter(e => e.completed).length;
-                            const totalExercises = workout.exercises.length;
+                            const exercises = Array.isArray(workout.exercises) ? workout.exercises : [];
+                            const completedExercises = exercises.filter(e => e.completed).length;
+                            const totalExercises = exercises.length;
                             const exerciseRate = totalExercises > 0 ? Math.round((completedExercises / totalExercises) * 100) : 0;
                             
                             return `
@@ -3487,11 +3538,11 @@ function renderWorkoutList() {
                                                 <i class="fas fa-clock me-1"></i>${workout.duration}
                                             </small>
                                             
-                                            ${workout.exercises.length > 0 ? `
+                                            ${exercises.length > 0 ? `
                                                 <div class="mt-3">
                                                     <small class="text-muted d-block mb-2">Exercícios:</small>
                                                     <div class="exercises-list">
-                                                        ${workout.exercises.map((ex, index) => {
+                                                        ${exercises.map((ex, index) => {
                                                             const exerciseId = ex.id || `ex-${workout.id}-${index}`;
                                                             return `
                                                                 <div class="exercise-item ${ex.completed ? 'completed' : ''} mb-2" data-exercise-id="${exerciseId}">
@@ -3688,7 +3739,10 @@ window.toggleExercise = function(workoutId, exerciseId) {
         console.error('Workout not found:', workoutId);
         return;
     }
-    
+    if (!Array.isArray(workout.exercises)) {
+        workout.exercises = [];
+    }
+
     const exercise = workout.exercises.find(e => e.id == exerciseId);
     if (!exercise) {
         console.error('Exercise not found:', exerciseId);
@@ -3843,9 +3897,46 @@ function loadDietManagement() {
     
     let html = `
         <div class="mb-4">
-            <button class="btn btn-primary" onclick="createNewDiet()">
-                <i class="fas fa-plus me-2"></i>Criar Nova Dieta
-            </button>
+            <div class="card">
+                <div class="card-header">
+                    <strong>Cadastrar Dieta</strong>
+                </div>
+                <div class="card-body">
+                    <form id="dietCreateForm">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Nome da dieta</label>
+                                <input type="text" class="form-control" id="dietNameInput" placeholder="Ex: Plano de Corte" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">DescriÇõÇœo</label>
+                                <input type="text" class="form-control" id="dietDescriptionInput" placeholder="Ex: DefiniÇõÇœo e energia">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Calorias/dia</label>
+                                <input type="number" class="form-control" id="dietCaloriesInput" value="2000" min="800" max="6000" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">ProteÇðnas (g)</label>
+                                <input type="number" class="form-control" id="dietProteinInput" value="150" min="0" max="600">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Carboidratos (g)</label>
+                                <input type="number" class="form-control" id="dietCarbsInput" value="200" min="0" max="800">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Gorduras (g)</label>
+                                <input type="number" class="form-control" id="dietFatInput" value="50" min="0" max="300">
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Salvar Dieta
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
         
         <div class="table-responsive">
@@ -3893,19 +3984,37 @@ function loadDietManagement() {
     `;
     
     container.innerHTML = html;
+
+    const dietForm = document.getElementById('dietCreateForm');
+    if (dietForm) {
+        dietForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            createNewDiet();
+        });
+    }
 }
 
 // Create New Diet
 window.createNewDiet = function() {
-    const name = prompt("Nome da dieta:");
-    if (!name) return;
-    
-    const description = prompt("Descrição:");
-    const dailyCalories = parseInt(prompt("Calorias diárias:")) || 2000;
-    const dailyProtein = parseInt(prompt("Proteínas diárias (g):")) || 150;
-    const dailyCarbs = parseInt(prompt("Carboidratos diários (g):")) || 200;
-    const dailyFat = parseInt(prompt("Gorduras diárias (g):")) || 50;
-    
+    const nameInput = document.getElementById('dietNameInput');
+    const descriptionInput = document.getElementById('dietDescriptionInput');
+    const caloriesInput = document.getElementById('dietCaloriesInput');
+    const proteinInput = document.getElementById('dietProteinInput');
+    const carbsInput = document.getElementById('dietCarbsInput');
+    const fatInput = document.getElementById('dietFatInput');
+
+    const name = nameInput ? nameInput.value.trim() : '';
+    if (!name) {
+        showToast('Informe o nome da dieta', 'warning');
+        return;
+    }
+
+    const description = descriptionInput ? descriptionInput.value.trim() : '';
+    const dailyCalories = parseInt(caloriesInput?.value, 10) || 2000;
+    const dailyProtein = parseInt(proteinInput?.value, 10) || 150;
+    const dailyCarbs = parseInt(carbsInput?.value, 10) || 200;
+    const dailyFat = parseInt(fatInput?.value, 10) || 50;
+
     const newDiet = {
         id: Date.now(),
         name: name,
@@ -3916,11 +4025,18 @@ window.createNewDiet = function() {
         dailyCarbs: dailyCarbs,
         dailyFat: dailyFat
     };
-    
+
     diets.push(newDiet);
     saveDietData();
     loadPage('diet');
     showToast('Dieta criada com sucesso!', 'success');
+
+    if (nameInput) nameInput.value = '';
+    if (descriptionInput) descriptionInput.value = '';
+    if (caloriesInput) caloriesInput.value = '2000';
+    if (proteinInput) proteinInput.value = '150';
+    if (carbsInput) carbsInput.value = '200';
+    if (fatInput) fatInput.value = '50';
 };
 
 // Set Active Diet
