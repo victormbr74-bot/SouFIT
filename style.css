@@ -40,6 +40,7 @@ body {
     line-height: 1.6;
     /* Adiciona um brilho sutil */
     box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.5);
+    overflow-x: hidden;
 }
 
 /* Ajusta os cards para melhor contraste com imagem de fundo */
@@ -426,6 +427,7 @@ p, span, div {
     padding: 30px;
     min-height: calc(100vh - 70px);
     background: transparent;
+    overflow-x: hidden;
 }
 
 .workout-card-body {
@@ -446,6 +448,24 @@ p, span, div {
     border: 1px solid var(--border-color);
     box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
     overflow: hidden;
+}
+
+.speed-actions {
+    flex-wrap: wrap;
+}
+
+.speed-actions .btn {
+    white-space: nowrap;
+}
+
+.header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.header-actions .btn {
+    white-space: nowrap;
 }
 
 .workout-card-body::-webkit-scrollbar {

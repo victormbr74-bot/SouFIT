@@ -1726,7 +1726,7 @@ function getWorkoutPage() {
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h3 class="mb-0"><i class="fas fa-dumbbell me-2"></i>Missões de Treino</h3>
-                            <div>
+                            <div class="header-actions">
                                 <button class="btn btn-primary" id="addWorkoutBtn">
                                     <i class="fas fa-plus me-2"></i>Nova Missão
                                 </button>
@@ -1831,7 +1831,7 @@ function getSpeedPage() {
                                 <h3 class="mb-0"><i class="fas fa-person-running me-2"></i>Speed</h3>
                                 <span class="badge bg-secondary" id="speedStatus">Parado</span>
                             </div>
-                            <div class="d-flex gap-2">
+                            <div class="d-flex gap-2 speed-actions">
                                 <button class="btn btn-success" id="speedStartBtn" type="button" onclick="startSpeedTracking()">
                                     <i class="fas fa-play me-2"></i>Iniciar
                                 </button>
@@ -1912,7 +1912,7 @@ function getDietPage() {
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h3 class="mb-0"><i class="fas fa-utensils me-2"></i>Dieta do Caçador</h3>
-                            <div>
+                            <div class="header-actions">
                                 <button class="btn btn-primary me-2" id="addFoodBtn">
                                     <i class="fas fa-plus me-2"></i>Registrar Alimento
                                 </button>
