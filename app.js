@@ -9,8 +9,21 @@ let foodLogs = [];
 let hunterLevels = {};
 let achievements = [];
 let dailyQuests = [];
-const validPages = ['home', 'workout', 'diet', 'results', 'profile'];
+const validPages = ['home', 'workout', 'diet', 'results', 'speed', 'profile'];
 let isInitializing = false;
+let speedTracking = {
+    active: false,
+    watchId: null,
+    map: null,
+    polyline: null,
+    startMarker: null,
+    currentMarker: null,
+    path: [],
+    totalDistance: 0,
+    lastXpKm: 0,
+    startTime: null,
+    timerId: null
+};
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', function() {
@@ -673,6 +686,16 @@ function setupEventListeners() {
     console.log('Configurando event listeners...');
     
     document.body.addEventListener('click', function(event) {
+        const speedButton = event.target.closest('#speedStartBtn, #speedPauseBtn, #speedStopBtn, #speedResetBtn');
+        if (speedButton) {
+            event.preventDefault();
+            if (speedButton.id === 'speedStartBtn') startSpeedTracking();
+            if (speedButton.id === 'speedPauseBtn') pauseSpeedTracking();
+            if (speedButton.id === 'speedStopBtn') stopSpeedTracking();
+            if (speedButton.id === 'speedResetBtn') resetSpeedTracking();
+            return;
+        }
+
         const link = event.target.closest('[data-page]');
         if (!link) return;
 
@@ -1255,6 +1278,13 @@ function loadPage(page) {
     
     console.log('Carregando página:', page);
     resetModalState();
+    if (page !== 'speed' && speedTracking.map) {
+        speedTracking.map.remove();
+        speedTracking.map = null;
+        speedTracking.polyline = null;
+        speedTracking.startMarker = null;
+        speedTracking.currentMarker = null;
+    }
     content.innerHTML = '';
     
     switch(page) {
@@ -1272,6 +1302,10 @@ function loadPage(page) {
         case 'diet':
             content.innerHTML = getDietPage();
             setTimeout(() => setupDietEvents(), 100);
+            break;
+        case 'speed':
+            content.innerHTML = getSpeedPage();
+            setTimeout(() => setupSpeedEvents(), 100);
             break;
         case 'results':
             content.innerHTML = getResultsPage();
@@ -1778,6 +1812,66 @@ function getWorkoutPage() {
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                         <button type="button" class="btn btn-primary" id="saveWorkoutBtn">Salvar Missão</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Speed Page
+function getSpeedPage() {
+    return `
+        <div class="container-fluid fade-in">
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h3 class="mb-0"><i class="fas fa-person-running me-2"></i>Speed</h3>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-success" id="speedStartBtn" type="button" onclick="startSpeedTracking()">
+                                    <i class="fas fa-play me-2"></i>Iniciar
+                                </button>
+                                <button class="btn btn-outline-warning" id="speedPauseBtn" type="button" onclick="pauseSpeedTracking()" disabled>
+                                    <i class="fas fa-pause me-2"></i>Pausar
+                                </button>
+                                <button class="btn btn-outline-danger" id="speedStopBtn" type="button" onclick="stopSpeedTracking()" disabled>
+                                    <i class="fas fa-stop me-2"></i>Finalizar
+                                </button>
+                                <button class="btn btn-outline-secondary" id="speedResetBtn" type="button" onclick="resetSpeedTracking()">
+                                    <i class="fas fa-rotate me-2"></i>Reset
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-4">
+                                    <div class="stat-item">
+                                        <div class="stat-label">Distancia</div>
+                                        <div class="stat-value" id="speedDistance">0.00 km</div>
+                                        <small class="text-muted">+25 XP por km</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="stat-item">
+                                        <div class="stat-label">Tempo</div>
+                                        <div class="stat-value" id="speedTime">00:00:00</div>
+                                        <small class="text-muted">Cronometro em tempo real</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="stat-item">
+                                        <div class="stat-label">Velocidade Media</div>
+                                        <div class="stat-value" id="speedAvg">0.0 km/h</div>
+                                        <small class="text-muted">Baseado no percurso</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="speedMap" class="speed-map"></div>
+                            <div class="mt-3 text-muted">
+                                <small>Ative a localizacao do navegador para registrar o percurso no mapa.</small>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2509,6 +2603,192 @@ function normalizeExerciseIds() {
         return;
     }
 
+function initSpeedMap() {
+    if (speedTracking.map || typeof L === 'undefined') return;
+
+    const mapEl = document.getElementById('speedMap');
+    if (!mapEl) return;
+
+    speedTracking.map = L.map(mapEl, {
+        zoomControl: true,
+        attributionControl: true
+    }).setView([-23.5505, -46.6333], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(speedTracking.map);
+
+    speedTracking.polyline = L.polyline([], {
+        color: '#00a8ff',
+        weight: 4
+    }).addTo(speedTracking.map);
+}
+
+function startSpeedTracking() {
+    if (!navigator.geolocation) {
+        showToast('Geolocalizacao nao suportada no navegador', 'error');
+        return;
+    }
+
+    if (speedTracking.active) return;
+    speedTracking.active = true;
+    speedTracking.startTime = speedTracking.startTime || Date.now();
+
+    const startBtn = document.getElementById('speedStartBtn');
+    const pauseBtn = document.getElementById('speedPauseBtn');
+    const stopBtn = document.getElementById('speedStopBtn');
+    if (startBtn) startBtn.disabled = true;
+    if (pauseBtn) pauseBtn.disabled = false;
+    if (stopBtn) stopBtn.disabled = false;
+
+    speedTracking.watchId = navigator.geolocation.watchPosition(
+        handleSpeedPosition,
+        handleSpeedError,
+        {
+            enableHighAccuracy: true,
+            maximumAge: 1000,
+            timeout: 10000
+        }
+    );
+
+    if (!speedTracking.timerId) {
+        speedTracking.timerId = setInterval(updateSpeedStats, 1000);
+    }
+}
+
+function pauseSpeedTracking() {
+    if (!speedTracking.active) return;
+    speedTracking.active = false;
+
+    if (speedTracking.watchId !== null) {
+        navigator.geolocation.clearWatch(speedTracking.watchId);
+        speedTracking.watchId = null;
+    }
+
+    if (speedTracking.timerId) {
+        clearInterval(speedTracking.timerId);
+        speedTracking.timerId = null;
+    }
+
+    const startBtn = document.getElementById('speedStartBtn');
+    const pauseBtn = document.getElementById('speedPauseBtn');
+    if (startBtn) startBtn.disabled = false;
+    if (pauseBtn) pauseBtn.disabled = true;
+}
+
+function stopSpeedTracking() {
+    pauseSpeedTracking();
+    const stopBtn = document.getElementById('speedStopBtn');
+    if (stopBtn) stopBtn.disabled = true;
+}
+
+function resetSpeedTracking() {
+    stopSpeedTracking();
+    speedTracking.path = [];
+    speedTracking.totalDistance = 0;
+    speedTracking.lastXpKm = 0;
+    speedTracking.startTime = null;
+
+    if (speedTracking.polyline) {
+        speedTracking.polyline.setLatLngs([]);
+    }
+    if (speedTracking.startMarker) {
+        speedTracking.map.removeLayer(speedTracking.startMarker);
+        speedTracking.startMarker = null;
+    }
+    if (speedTracking.currentMarker) {
+        speedTracking.map.removeLayer(speedTracking.currentMarker);
+        speedTracking.currentMarker = null;
+    }
+
+    updateSpeedStats();
+}
+
+function handleSpeedPosition(position) {
+    if (!speedTracking.map) return;
+
+    const { latitude, longitude, accuracy } = position.coords;
+    if (accuracy && accuracy > 50) {
+        return;
+    }
+
+    const point = [latitude, longitude];
+    const lastPoint = speedTracking.path[speedTracking.path.length - 1];
+
+    if (!lastPoint) {
+        speedTracking.path.push(point);
+        speedTracking.startMarker = L.marker(point).addTo(speedTracking.map);
+        speedTracking.currentMarker = L.marker(point).addTo(speedTracking.map);
+        speedTracking.map.setView(point, 16);
+        speedTracking.polyline.setLatLngs(speedTracking.path);
+        updateSpeedStats();
+        return;
+    }
+
+    const distanceKm = haversineDistanceKm(lastPoint[0], lastPoint[1], point[0], point[1]);
+    if (distanceKm < 0.005) return;
+
+    speedTracking.totalDistance += distanceKm;
+    speedTracking.path.push(point);
+    speedTracking.polyline.setLatLngs(speedTracking.path);
+
+    if (speedTracking.currentMarker) {
+        speedTracking.currentMarker.setLatLng(point);
+    }
+
+    const newKm = Math.floor(speedTracking.totalDistance);
+    if (newKm > speedTracking.lastXpKm) {
+        for (let km = speedTracking.lastXpKm + 1; km <= newKm; km += 1) {
+            addXP(25, `Percorreu ${km} km`);
+            showToast(`+25 XP por ${km} km`, 'success');
+        }
+        speedTracking.lastXpKm = newKm;
+    }
+
+    updateSpeedStats();
+}
+
+function handleSpeedError(error) {
+    console.error('Erro de geolocalizacao:', error);
+    showToast('Nao foi possivel acessar a localizacao', 'error');
+    stopSpeedTracking();
+}
+
+function updateSpeedStats() {
+    const distanceEl = document.getElementById('speedDistance');
+    const timeEl = document.getElementById('speedTime');
+    const avgEl = document.getElementById('speedAvg');
+
+    const elapsed = speedTracking.startTime ? Date.now() - speedTracking.startTime : 0;
+    const distanceKm = speedTracking.totalDistance;
+    const hours = elapsed / 3600000;
+    const avg = hours > 0 ? distanceKm / hours : 0;
+
+    if (distanceEl) distanceEl.textContent = `${distanceKm.toFixed(2)} km`;
+    if (timeEl) timeEl.textContent = formatDuration(elapsed);
+    if (avgEl) avgEl.textContent = `${avg.toFixed(1)} km/h`;
+}
+
+function formatDuration(ms) {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+    const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+    const seconds = String(totalSeconds % 60).padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+}
+
+function haversineDistanceKm(lat1, lon1, lat2, lon2) {
+    const toRad = value => value * (Math.PI / 180);
+    const R = 6371;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
     const timestamp = Date.now();
     workouts = workouts.map((workout, workoutIndex) => {
         const safeWorkout = workout && typeof workout === 'object' ? { ...workout } : {};
@@ -2622,6 +2902,22 @@ function setupDietEvents() {
     if (saveFoodBtn) {
         saveFoodBtn.addEventListener('click', saveFoodLog);
     }
+}
+
+// Setup Speed Events
+function setupSpeedEvents() {
+    initSpeedMap();
+    updateSpeedStats();
+
+    const startBtn = document.getElementById('speedStartBtn');
+    const pauseBtn = document.getElementById('speedPauseBtn');
+    const stopBtn = document.getElementById('speedStopBtn');
+    const resetBtn = document.getElementById('speedResetBtn');
+
+    if (startBtn) startBtn.addEventListener('click', startSpeedTracking);
+    if (pauseBtn) pauseBtn.addEventListener('click', pauseSpeedTracking);
+    if (stopBtn) stopBtn.addEventListener('click', stopSpeedTracking);
+    if (resetBtn) resetBtn.addEventListener('click', resetSpeedTracking);
 }
 
 // Setup Results Events
@@ -4255,5 +4551,9 @@ window.openUsersManager = openUsersManager;
 window.exportAllUsersData = exportAllUsersData;
 window.importAllUsersData = importAllUsersData;
 window.saveToPhone = saveToPhone;
+window.startSpeedTracking = startSpeedTracking;
+window.pauseSpeedTracking = pauseSpeedTracking;
+window.stopSpeedTracking = stopSpeedTracking;
+window.resetSpeedTracking = resetSpeedTracking;
 
 console.log('Hunter\'s Gym - Sistema completo carregado com sucesso!');
