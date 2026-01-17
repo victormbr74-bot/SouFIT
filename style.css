@@ -43,6 +43,11 @@ body {
     overflow-x: hidden;
 }
 
+:focus-visible {
+    outline: 3px solid var(--neon-blue);
+    outline-offset: 2px;
+}
+
 /* Ajusta os cards para melhor contraste com imagem de fundo */
 .card {
     background: rgba(10, 25, 47, 0.92); /* Mais opaco para melhor legibilidade */
@@ -60,6 +65,10 @@ h1, h2, h3, h4, h5, h6 {
     color: var(--text-primary);
     font-weight: 700;
     text-shadow: 0 0 10px rgba(0, 168, 255, 0.3);
+}
+
+.page-title {
+    font-size: 1.6rem;
 }
 
 p, span, div {
@@ -466,6 +475,72 @@ p, span, div {
 
 .header-actions .btn {
     white-space: nowrap;
+}
+
+.bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 68px;
+    background: rgba(7, 20, 37, 0.98);
+    border-top: 1px solid var(--border-color);
+    display: none;
+    align-items: center;
+    justify-content: space-around;
+    z-index: 1040;
+    padding: 6px 10px;
+    backdrop-filter: blur(10px);
+}
+
+.bottom-nav-link {
+    flex: 1;
+    text-align: center;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px 4px;
+    border-radius: 12px;
+    margin-bottom: 0;
+    border: 1px solid transparent;
+}
+
+.bottom-nav-link i {
+    font-size: 1.2rem;
+}
+
+.bottom-nav-link.active {
+    color: var(--neon-blue);
+    background: rgba(0, 168, 255, 0.12);
+    border-left: none;
+}
+
+.bottom-nav-link:hover {
+    transform: none;
+}
+
+.bottom-nav-link::before {
+    display: none;
+}
+
+.mobile-more-btn {
+    position: fixed;
+    right: 16px;
+    bottom: 84px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    background: rgba(10, 25, 47, 0.95);
+    color: var(--text-primary);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1041;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 }
 
 .workout-card-body::-webkit-scrollbar {
@@ -931,6 +1006,7 @@ p, span, div {
         margin-left: 0;
         padding: 20px;
         margin-top: 70px;
+        padding-bottom: 110px;
     }
     
     .navbar-toggler {
@@ -949,6 +1025,84 @@ p, span, div {
 
     .workout-card-body {
         max-height: calc(100dvh - 200px);
+    }
+
+    .bottom-nav {
+        display: flex;
+    }
+
+    .mobile-more-btn {
+        display: flex;
+    }
+
+    .card-header {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .header-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .btn,
+    .nav-link,
+    .bottom-nav-link {
+        min-height: 44px;
+    }
+
+    .speed-map {
+        height: 280px;
+    }
+
+    .page-title {
+        font-size: 1.25rem;
+    }
+
+    .table-responsive table thead {
+        display: none;
+    }
+
+    .table-responsive table tbody tr {
+        display: block;
+        margin-bottom: 16px;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        background: rgba(10, 25, 47, 0.75);
+    }
+
+    .table-responsive table tbody td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 12px;
+        border: none;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        gap: 12px;
+    }
+
+    .table-responsive table tbody td:first-child {
+        border-top: none;
+    }
+
+    .table-responsive table tbody td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--text-muted);
+    }
+
+    .workout-item {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .workout-item::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .workout-item::-webkit-scrollbar-thumb {
+        background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+        border-radius: 10px;
     }
 }
 

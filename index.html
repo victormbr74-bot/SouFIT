@@ -8,8 +8,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="icon" href="./favicon.ico" type="image/x-icon">
+        <link rel="icon" href="./favicon.ico" type="image/x-icon">
 </head>
 <body>
     <!-- Navbar com tema Solo Leveling -->
@@ -84,7 +83,32 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <nav class="bottom-nav" id="bottomNav">
+        <a class="bottom-nav-link nav-link" href="#home" data-page="home" aria-label="Dashboard">
+            <i class="fas fa-home"></i>
+            <span>Dashboard</span>
+        </a>
+        <a class="bottom-nav-link nav-link" href="#workout" data-page="workout" aria-label="Treinos">
+            <i class="fas fa-dumbbell"></i>
+            <span>Treinos</span>
+        </a>
+        <a class="bottom-nav-link nav-link" href="#speed" data-page="speed" aria-label="Speed">
+            <i class="fas fa-person-running"></i>
+            <span>Speed</span>
+        </a>
+        <a class="bottom-nav-link nav-link" href="#results" data-page="results" aria-label="Status">
+            <i class="fas fa-chart-line"></i>
+            <span>Status</span>
+        </a>
+        <a class="bottom-nav-link nav-link" href="#profile" data-page="profile" aria-label="Perfil">
+            <i class="fas fa-user"></i>
+            <span>Perfil</span>
+        </a>
+    </nav>
+    <button class="mobile-more-btn" id="mobileMoreBtn" type="button" aria-label="Mais opcoes">
+        <i class="fas fa-ellipsis-h"></i>
+    </button>
     <!-- App JS -->
     <script src="app.js"></script>
 </body>

@@ -11,6 +11,16 @@ let achievements = [];
 let dailyQuests = [];
 const validPages = ['home', 'workout', 'diet', 'results', 'speed', 'profile'];
 let isInitializing = false;
+let leafletPromise = null;
+const RUNS_STORAGE_KEY = 'soufit_runs_v1';
+const RUNS_STORAGE_VERSION = 1;
+let speedRuns = [];
+let speedRunsLoaded = false;
+let speedRunsFilters = {
+    rangeDays: 7,
+    minDistance: 0,
+    sortBy: 'date_desc'
+};
 let speedTracking = {
     active: false,
     watchId: null,
@@ -721,6 +731,14 @@ function setupEventListeners() {
             sidebar.classList.toggle('active');
         });
     }
+
+    const mobileMoreBtn = document.getElementById('mobileMoreBtn');
+    if (mobileMoreBtn) {
+        mobileMoreBtn.addEventListener('click', function() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('active');
+        });
+    }
     
     document.getElementById('mainContent')?.addEventListener('click', function() {
         if (window.innerWidth <= 768) {
@@ -737,7 +755,7 @@ function getPageFromHash() {
 }
 
 function setActiveNav(page) {
-    document.querySelectorAll('.nav-link').forEach(link => {
+    document.querySelectorAll('.nav-link[data-page]').forEach(link => {
         link.classList.remove('active');
         if (link.getAttribute('data-page') === page) {
             link.classList.add('active');
@@ -769,7 +787,7 @@ function updateUserSidebar() {
             <div class="d-flex align-items-center mb-3 p-2 bg-dark rounded">
                 <div class="user-avatar me-2">
                     ${profilePics[currentUser.id] ? 
-                        `<img src="${profilePics[currentUser.id]}" alt="${currentUser.name}" class="profile-img">` :
+                        `<img src="${profilePics[currentUser.id]}" alt="${currentUser.name}" class="profile-img" loading="lazy" width="50" height="50">` :
                         `<span>${currentUser.profilePic || '👤'}</span>`}
                 </div>
                 <div class="flex-grow-1">
@@ -797,7 +815,7 @@ function updateUserSidebar() {
             <div class="d-flex align-items-center">
                 <div class="user-avatar-sm me-2">
                     ${profilePics[user.id] ? 
-                        `<img src="${profilePics[user.id]}" alt="${user.name}" class="profile-img-sm">` :
+                        `<img src="${profilePics[user.id]}" alt="${user.name}" class="profile-img-sm" loading="lazy" width="32" height="32">` :
                         `<span>${user.profilePic || '👤'}</span>`}
                 </div>
                 <div class="flex-grow-1">
@@ -1077,24 +1095,24 @@ function openUsersManager() {
         const isCurrent = currentUser && currentUser.id === user.id;
         modalHtml += `
             <tr ${isCurrent ? 'class="table-primary"' : ''}>
-                <td>
+                <td data-label="Foto">
                     <div class="rounded-circle d-inline-flex align-items-center justify-content-center"
                         style="width:40px;height:40px;background:#2d2d2d;color:white">
                         ${profilePics[user.id] ? 
-                            `<img src="${profilePics[user.id]}" alt="${user.name}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` : 
+                            `<img src="${profilePics[user.id]}" alt="${user.name}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" loading="lazy" width="40" height="40">` : 
                             user.profilePic || '👤'}
                     </div>
                 </td>
-                <td>
+                <td data-label="Nome">
                     <strong>${user.name}</strong>
                     ${isCurrent ? '<span class="badge bg-success ms-2">Atual</span>' : ''}
                 </td>
-                <td>${user.email}</td>
-                <td>
+                <td data-label="Email">${user.email}</td>
+                <td data-label="Perfil">
                     <span class="badge bg-primary">${user.experience}</span><br>
                     <small class="text-muted">${user.goal}</small>
                 </td>
-                <td>
+                <td data-label="Acoes">
                     <div class="btn-group btn-group-sm">
                         <button class="btn btn-outline-primary" onclick="window.switchUser(${user.id}); setTimeout(() => { const modalEl = document.getElementById('usersManagerModal'); if(modalEl) bootstrap.Modal.getInstance(modalEl).hide(); }, 100);" 
                                 ${isCurrent ? 'disabled' : ''}>
@@ -1278,12 +1296,17 @@ function loadPage(page) {
     
     console.log('Carregando página:', page);
     resetModalState();
-    if (page !== 'speed' && speedTracking.map) {
-        speedTracking.map.remove();
-        speedTracking.map = null;
-        speedTracking.polyline = null;
-        speedTracking.startMarker = null;
-        speedTracking.currentMarker = null;
+    if (page !== 'speed') {
+        if (speedTracking.active) {
+            stopSpeedTracking();
+        }
+        if (speedTracking.map) {
+            speedTracking.map.remove();
+            speedTracking.map = null;
+            speedTracking.polyline = null;
+            speedTracking.startMarker = null;
+            speedTracking.currentMarker = null;
+        }
     }
     content.innerHTML = '';
     
@@ -1368,6 +1391,7 @@ function getHomePage() {
     
     return `
         <div class="container-fluid fade-in">
+            <h1 class="page-title visually-hidden">Dashboard</h1>
             <!-- Welcome Card -->
             <div class="row mb-4">
                 <div class="col-12">
@@ -1393,7 +1417,7 @@ function getHomePage() {
                                     <div class="profile-pic-large d-inline-block">
                                         <div class="profile-pic">
                                             ${profilePics[currentUser.id] ? 
-                                                `<img src="${profilePics[currentUser.id]}" alt="${currentUser.name}" class="profile-img">` :
+                                                `<img src="${profilePics[currentUser.id]}" alt="${currentUser.name}" class="profile-img" loading="lazy" width="50" height="50">` :
                                                 `<span>${currentUser.profilePic || '⚔️'}</span>`}
                                         </div>
                                     </div>
@@ -1725,7 +1749,7 @@ function getWorkoutPage() {
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <h3 class="mb-0"><i class="fas fa-dumbbell me-2"></i>Missões de Treino</h3>
+                            <h1 class="mb-0 page-title"><i class="fas fa-dumbbell me-2"></i>Missões de Treino</h1>
                             <div class="header-actions">
                                 <button class="btn btn-primary" id="addWorkoutBtn">
                                     <i class="fas fa-plus me-2"></i>Nova Missão
@@ -1828,7 +1852,7 @@ function getSpeedPage() {
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <div class="d-flex align-items-center gap-3">
-                                <h3 class="mb-0"><i class="fas fa-person-running me-2"></i>Speed</h3>
+                                <h1 class="mb-0 page-title"><i class="fas fa-person-running me-2"></i>Speed</h1>
                                 <span class="badge bg-secondary" id="speedStatus">Parado</span>
                             </div>
                             <div class="d-flex gap-2 speed-actions">
@@ -1878,6 +1902,115 @@ function getSpeedPage() {
                     </div>
                 </div>
             </div>
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h2 class="mb-0"><i class="fas fa-road me-2"></i>Historico de Corridas</h2>
+                            <div class="header-actions">
+                                <button class="btn btn-outline-primary" id="speedExportBtn" type="button">
+                                    <i class="fas fa-file-export me-2"></i>Exportar JSON
+                                </button>
+                                <button class="btn btn-outline-secondary" id="speedImportBtn" type="button">
+                                    <i class="fas fa-file-import me-2"></i>Importar JSON
+                                </button>
+                                <input type="file" id="speedImportInput" accept="application/json" class="d-none">
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <form id="speedRunForm" class="mb-4">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Data e hora</label>
+                                        <input type="datetime-local" class="form-control" id="speedRunDate" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Distancia (km)</label>
+                                        <input type="number" class="form-control" id="speedRunDistance" min="0.01" step="0.01" placeholder="Ex: 5.2" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Tempo (hh:mm:ss ou mm:ss)</label>
+                                        <input type="text" class="form-control" id="speedRunTime" placeholder="Ex: 00:28:30" required>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label">Notas (opcional)</label>
+                                        <input type="text" class="form-control" id="speedRunNotes" placeholder="Ex: Ritmo leve, terreno plano">
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-plus me-2"></i>Salvar corrida
+                                    </button>
+                                </div>
+                            </form>
+                            <div class="speed-filters mb-3">
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Periodo</label>
+                                        <select class="form-select" id="speedFilterRange">
+                                            <option value="7">Ultimos 7 dias</option>
+                                            <option value="30">Ultimos 30 dias</option>
+                                            <option value="90">Ultimos 90 dias</option>
+                                            <option value="0">Tudo</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Distancia minima (km)</label>
+                                        <input type="number" class="form-control" id="speedFilterDistance" min="0" step="0.1" value="0">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Ordenar por</label>
+                                        <select class="form-select" id="speedFilterSort">
+                                            <option value="date_desc">Data (mais recente)</option>
+                                            <option value="date_asc">Data (mais antiga)</option>
+                                            <option value="pace_asc">Melhor ritmo</option>
+                                            <option value="speed_desc">Maior velocidade</option>
+                                            <option value="distance_desc">Maior distancia</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row g-3 mb-3" id="speedRunsSummary">
+                                <div class="col-md-4">
+                                    <div class="stat-item">
+                                        <div class="stat-label">Total km</div>
+                                        <div class="stat-value" id="speedSummaryDistance">0.0 km</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="stat-item">
+                                        <div class="stat-label">Melhor ritmo</div>
+                                        <div class="stat-value" id="speedSummaryPace">--</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="stat-item">
+                                        <div class="stat-label">Melhor velocidade</div>
+                                        <div class="stat-value" id="speedSummarySpeed">--</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="speed-runs-state" id="speedRunsState"></div>
+                            <div class="table-responsive">
+                                <table class="table table-hover speed-runs-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Data</th>
+                                            <th>Distancia</th>
+                                            <th>Tempo</th>
+                                            <th>Ritmo</th>
+                                            <th>Velocidade</th>
+                                            <th>Notas</th>
+                                            <th>Acoes</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="speedRunsList"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     `;
 }
@@ -1911,7 +2044,7 @@ function getDietPage() {
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <h3 class="mb-0"><i class="fas fa-utensils me-2"></i>Dieta do Caçador</h3>
+                            <h1 class="mb-0 page-title"><i class="fas fa-utensils me-2"></i>Dieta do Caçador</h1>
                             <div class="header-actions">
                                 <button class="btn btn-primary me-2" id="addFoodBtn">
                                     <i class="fas fa-plus me-2"></i>Registrar Alimento
@@ -1977,7 +2110,7 @@ function getDietPage() {
                                                                         <div class="d-flex justify-content-between align-items-center">
                                                                             <div class="flex-grow-1">
                                                                                 <div class="d-flex align-items-center mb-2">
-                                                                                    <button class="btn btn-sm ${isConsumed ? 'btn-success' : 'btn-outline-success'} me-3 toggle-food-consumption"
+                                                                                    <button class="btn btn-sm ${isConsumed ? 'btn-success' : 'btn-outline-success'} me-3 toggle-food-consumption" aria-label="Alternar consumo"
                                                                                             onclick="toggleFoodConsumption(${food.id}, '${food.name}', ${food.calories}, ${food.protein}, ${food.carbs}, ${food.fat}, '${meal.name}')"
                                                                                             title="${isConsumed ? 'Desmarcar como consumido' : 'Marcar como consumido'}">
                                                                                         <i class="fas fa-${isConsumed ? 'check-circle' : 'circle'}"></i>
@@ -2184,7 +2317,7 @@ function getResultsPage() {
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h3 class="mb-0"><i class="fas fa-chart-line me-2"></i>Status do Caçador</h3>
-                            <div>
+                            <div class="header-actions">
                                 <button class="btn btn-primary" id="addResultBtn">
                                     <i class="fas fa-plus me-2"></i>Nova Medição
                                 </button>
@@ -2320,7 +2453,7 @@ function getProfilePage() {
                                     <div class="d-flex align-items-center">
                                         <div class="profile-pic me-4" id="profilePicture">
                                             ${profilePics[currentUser.id] ? 
-                                                `<img src="${profilePics[currentUser.id]}" alt="${currentUser.name}">` :
+                                                `<img src="${profilePics[currentUser.id]}" alt="${currentUser.name}" loading="lazy" width="120" height="120">` :
                                                 `<span>${currentUser.profilePic || '👤'}</span>`}
                                             <input type="file" id="profilePicInput" class="profile-pic-input" 
                                                    accept="image/*" title="Clique para alterar foto">
@@ -2635,6 +2768,37 @@ function normalizeExerciseIds() {
     saveData();
 }
 
+function loadLeaflet() {
+    if (window.L) return Promise.resolve();
+    if (leafletPromise) return leafletPromise;
+
+    leafletPromise = new Promise((resolve, reject) => {
+        const existingScript = document.getElementById('leafletScript');
+        if (existingScript) {
+            existingScript.addEventListener('load', () => resolve());
+            existingScript.addEventListener('error', () => reject(new Error('Leaflet load failed')));
+            return;
+        }
+
+        if (!document.getElementById('leafletCss')) {
+            const link = document.createElement('link');
+            link.id = 'leafletCss';
+            link.rel = 'stylesheet';
+            link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+            document.head.appendChild(link);
+        }
+
+        const script = document.createElement('script');
+        script.id = 'leafletScript';
+        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Leaflet load failed'));
+        document.body.appendChild(script);
+    });
+
+    return leafletPromise;
+}
+
 function initSpeedMap() {
     if (speedTracking.map || typeof L === 'undefined') return;
 
@@ -2905,7 +3069,13 @@ function setupDietEvents() {
 
 // Setup Speed Events
 function setupSpeedEvents() {
-    initSpeedMap();
+    loadLeaflet()
+        .then(() => {
+            initSpeedMap();
+        })
+        .catch(() => {
+            showToast('Nao foi possivel carregar o mapa', 'error');
+        });
     updateSpeedStats();
     updateSpeedControls();
 
@@ -2918,6 +3088,44 @@ function setupSpeedEvents() {
     if (pauseBtn) pauseBtn.addEventListener('click', pauseSpeedTracking);
     if (stopBtn) stopBtn.addEventListener('click', stopSpeedTracking);
     if (resetBtn) resetBtn.addEventListener('click', resetSpeedTracking);
+
+    const runForm = document.getElementById('speedRunForm');
+    if (runForm) {
+        runForm.addEventListener('submit', handleRunFormSubmit);
+    }
+    const runDate = document.getElementById('speedRunDate');
+    if (runDate && !runDate.value) {
+        const now = new Date();
+        runDate.value = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    }
+
+    const filterRange = document.getElementById('speedFilterRange');
+    const filterDistance = document.getElementById('speedFilterDistance');
+    const filterSort = document.getElementById('speedFilterSort');
+    if (filterRange) filterRange.value = String(speedRunsFilters.rangeDays);
+    if (filterDistance) filterDistance.value = String(speedRunsFilters.minDistance);
+    if (filterSort) filterSort.value = speedRunsFilters.sortBy;
+    if (filterRange) filterRange.addEventListener('change', handleRunFilterChange);
+    if (filterDistance) filterDistance.addEventListener('input', handleRunFilterChange);
+    if (filterSort) filterSort.addEventListener('change', handleRunFilterChange);
+
+    const exportBtn = document.getElementById('speedExportBtn');
+    const importBtn = document.getElementById('speedImportBtn');
+    const importInput = document.getElementById('speedImportInput');
+    if (exportBtn) exportBtn.addEventListener('click', exportRunsJson);
+    if (importBtn && importInput) {
+        importBtn.addEventListener('click', () => importInput.click());
+        importInput.addEventListener('change', event => {
+            const file = event.target.files?.[0];
+            if (file) importRunsJson(file);
+            event.target.value = '';
+        });
+    }
+
+    if (!speedRunsLoaded) {
+        loadRunsFromStorage();
+    }
+    renderRunsList();
 }
 
 function updateSpeedControls() {
@@ -2937,6 +3145,291 @@ function setSpeedStatus(label, className) {
     statusEl.textContent = label;
     statusEl.className = `badge ${className}`;
 }
+
+function parseTimeToSeconds(value) {
+    if (!value) return null;
+    const trimmed = value.trim();
+    const match = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(trimmed);
+    if (!match) return null;
+    const hours = match[3] ? parseInt(match[1], 10) : 0;
+    const minutes = match[3] ? parseInt(match[2], 10) : parseInt(match[1], 10);
+    const seconds = match[3] ? parseInt(match[3], 10) : parseInt(match[2], 10);
+    if (minutes > 59 || seconds > 59) return null;
+    return hours * 3600 + minutes * 60 + seconds;
+}
+
+function formatSecondsToTime(totalSeconds) {
+    if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return '--';
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function calcPaceSecondsPerKm(distanceKm, timeSeconds) {
+    if (!distanceKm || !timeSeconds) return null;
+    return Math.round(timeSeconds / distanceKm);
+}
+
+function calcSpeedKmh(distanceKm, timeSeconds) {
+    if (!distanceKm || !timeSeconds) return null;
+    return distanceKm / (timeSeconds / 3600);
+}
+
+function loadRunsFromStorage() {
+    try {
+        const raw = localStorage.getItem(RUNS_STORAGE_KEY);
+        if (!raw) {
+            speedRuns = [];
+            speedRunsLoaded = true;
+            return;
+        }
+
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+            speedRuns = parsed;
+            saveRunsToStorage();
+        } else if (parsed && parsed.version === RUNS_STORAGE_VERSION && Array.isArray(parsed.runs)) {
+            speedRuns = parsed.runs;
+        } else {
+            speedRuns = [];
+        }
+    } catch (error) {
+        console.error('Erro ao carregar corridas:', error);
+        speedRuns = [];
+    }
+    speedRunsLoaded = true;
+}
+
+function saveRunsToStorage() {
+    const payload = {
+        version: RUNS_STORAGE_VERSION,
+        runs: speedRuns
+    };
+    localStorage.setItem(RUNS_STORAGE_KEY, JSON.stringify(payload));
+}
+
+function getFilteredRuns() {
+    let filtered = speedRuns.slice();
+    const rangeDays = Number(speedRunsFilters.rangeDays);
+    if (rangeDays > 0) {
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - rangeDays);
+        filtered = filtered.filter(run => new Date(run.dateTimeISO) >= cutoff);
+    }
+
+    const minDistance = Number(speedRunsFilters.minDistance) || 0;
+    if (minDistance > 0) {
+        filtered = filtered.filter(run => run.distanceKm >= minDistance);
+    }
+
+    switch (speedRunsFilters.sortBy) {
+        case 'date_asc':
+            filtered.sort((a, b) => new Date(a.dateTimeISO) - new Date(b.dateTimeISO));
+            break;
+        case 'pace_asc':
+            filtered.sort((a, b) => a.avgPaceSecPerKm - b.avgPaceSecPerKm);
+            break;
+        case 'speed_desc':
+            filtered.sort((a, b) => b.avgSpeedKmh - a.avgSpeedKmh);
+            break;
+        case 'distance_desc':
+            filtered.sort((a, b) => b.distanceKm - a.distanceKm);
+            break;
+        case 'date_desc':
+        default:
+            filtered.sort((a, b) => new Date(b.dateTimeISO) - new Date(a.dateTimeISO));
+            break;
+    }
+
+    return filtered;
+}
+
+function renderRunsSummary(runs) {
+    const totalKm = runs.reduce((sum, run) => sum + run.distanceKm, 0);
+    const bestPace = runs.length ? Math.min(...runs.map(run => run.avgPaceSecPerKm)) : null;
+    const bestSpeed = runs.length ? Math.max(...runs.map(run => run.avgSpeedKmh)) : null;
+
+    const distanceEl = document.getElementById('speedSummaryDistance');
+    const paceEl = document.getElementById('speedSummaryPace');
+    const speedEl = document.getElementById('speedSummarySpeed');
+
+    if (distanceEl) distanceEl.textContent = `${totalKm.toFixed(1)} km`;
+    if (paceEl) paceEl.textContent = bestPace ? `${formatSecondsToTime(bestPace)} / km` : '--';
+    if (speedEl) speedEl.textContent = bestSpeed ? `${bestSpeed.toFixed(1)} km/h` : '--';
+}
+
+function renderRunsList() {
+    const stateEl = document.getElementById('speedRunsState');
+    const listEl = document.getElementById('speedRunsList');
+    if (!listEl) return;
+
+    if (!speedRunsLoaded) {
+        if (stateEl) stateEl.innerHTML = '<div class=\"loading\"><div class=\"spinner-border\"></div><p class=\"mt-3\">Carregando corridas...</p></div>';
+        listEl.innerHTML = '';
+        return;
+    }
+
+    const runs = getFilteredRuns();
+    renderRunsSummary(runs);
+
+    if (!runs.length) {
+        if (stateEl) stateEl.innerHTML = '<div class=\"empty-state\"><div class=\"empty-state-icon\">🏃</div><h4>Nenhuma corrida registrada</h4><p>Adicione sua primeira corrida para ver o historico.</p></div>';
+        listEl.innerHTML = '';
+        return;
+    }
+
+    if (stateEl) stateEl.innerHTML = '';
+    listEl.innerHTML = runs.map(run => `
+        <tr>
+            <td data-label="Data">${new Date(run.dateTimeISO).toLocaleString('pt-BR')}</td>
+            <td data-label="Distancia">${run.distanceKm.toFixed(2)} km</td>
+            <td data-label="Tempo">${formatSecondsToTime(run.timeSeconds)}</td>
+            <td data-label="Ritmo">${formatSecondsToTime(run.avgPaceSecPerKm)} / km</td>
+            <td data-label="Velocidade">${run.avgSpeedKmh.toFixed(1)} km/h</td>
+            <td data-label="Notas">${run.notes || '-'}</td>
+            <td data-label="Acoes">
+                <button class="btn btn-sm btn-outline-danger" aria-label="Excluir missao" type="button" aria-label="Excluir corrida" onclick="deleteRun('${run.id}')">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function handleRunFormSubmit(event) {
+    event.preventDefault();
+
+    const dateInput = document.getElementById('speedRunDate');
+    const distanceInput = document.getElementById('speedRunDistance');
+    const timeInput = document.getElementById('speedRunTime');
+    const notesInput = document.getElementById('speedRunNotes');
+
+    const dateValue = dateInput?.value;
+    const distanceValue = parseFloat(distanceInput?.value || '0');
+    const timeSeconds = parseTimeToSeconds(timeInput?.value || '');
+
+    if (!dateValue) {
+        showToast('Informe a data e hora da corrida', 'warning');
+        return;
+    }
+    if (!distanceValue || distanceValue <= 0) {
+        showToast('Distancia invalida', 'warning');
+        return;
+    }
+    if (!timeSeconds || timeSeconds <= 0) {
+        showToast('Tempo invalido', 'warning');
+        return;
+    }
+
+    const pace = calcPaceSecondsPerKm(distanceValue, timeSeconds);
+    const speed = calcSpeedKmh(distanceValue, timeSeconds);
+    if (!pace || !speed) {
+        showToast('Nao foi possivel calcular ritmo', 'error');
+        return;
+    }
+
+    const run = {
+        id: `run-${Date.now()}`,
+        dateTimeISO: new Date(dateValue).toISOString(),
+        distanceKm: distanceValue,
+        timeSeconds: timeSeconds,
+        avgPaceSecPerKm: pace,
+        avgSpeedKmh: Number(speed.toFixed(2)),
+        notes: notesInput?.value.trim() || ''
+    };
+
+    speedRuns.unshift(run);
+    saveRunsToStorage();
+    renderRunsList();
+    showToast('Corrida salva com sucesso!', 'success');
+
+    if (distanceInput) distanceInput.value = '';
+    if (timeInput) timeInput.value = '';
+    if (notesInput) notesInput.value = '';
+}
+
+function handleRunFilterChange() {
+    const rangeEl = document.getElementById('speedFilterRange');
+    const distanceEl = document.getElementById('speedFilterDistance');
+    const sortEl = document.getElementById('speedFilterSort');
+
+    speedRunsFilters.rangeDays = rangeEl ? rangeEl.value : 7;
+    speedRunsFilters.minDistance = distanceEl ? distanceEl.value : 0;
+    speedRunsFilters.sortBy = sortEl ? sortEl.value : 'date_desc';
+
+    renderRunsList();
+}
+
+function exportRunsJson() {
+    const payload = {
+        version: RUNS_STORAGE_VERSION,
+        runs: speedRuns
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'soufit_runs.json';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
+
+function importRunsJson(file) {
+    const stateEl = document.getElementById('speedRunsState');
+    if (stateEl) {
+        stateEl.innerHTML = '<div class=\"loading\"><div class=\"spinner-border\"></div><p class=\"mt-3\">Importando corridas...</p></div>';
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+        try {
+            const parsed = JSON.parse(reader.result);
+            let runs = [];
+            if (Array.isArray(parsed)) {
+                runs = parsed;
+            } else if (parsed && parsed.version === RUNS_STORAGE_VERSION && Array.isArray(parsed.runs)) {
+                runs = parsed.runs;
+            } else {
+                throw new Error('Formato invalido');
+            }
+
+            const normalized = runs.map(run => ({
+                id: run.id || `run-${Date.now()}`,
+                dateTimeISO: run.dateTimeISO,
+                distanceKm: Number(run.distanceKm),
+                timeSeconds: Number(run.timeSeconds),
+                avgPaceSecPerKm: Number(run.avgPaceSecPerKm),
+                avgSpeedKmh: Number(run.avgSpeedKmh),
+                notes: run.notes || ''
+            })).filter(run => run.dateTimeISO && run.distanceKm > 0 && run.timeSeconds > 0);
+
+            speedRuns = normalized;
+            saveRunsToStorage();
+            renderRunsList();
+            showToast('Corridas importadas com sucesso!', 'success');
+        } catch (error) {
+            console.error('Import error:', error);
+            if (stateEl) {
+                stateEl.innerHTML = '<div class=\"empty-state\"><div class=\"empty-state-icon\">⚠️</div><h4>Importacao invalida</h4><p>Verifique o arquivo e tente novamente.</p></div>';
+            }
+            showToast('Erro ao importar corridas', 'error');
+        }
+    };
+    reader.onerror = () => {
+        showToast('Erro ao ler o arquivo', 'error');
+    };
+    reader.readAsText(file);
+}
+
+window.deleteRun = function(runId) {
+    speedRuns = speedRuns.filter(run => run.id !== runId);
+    saveRunsToStorage();
+    renderRunsList();
+    showToast('Corrida removida', 'warning');
+};
 
 // Setup Results Events
 function setupResultsEvents() {
@@ -3021,7 +3514,7 @@ function handleProfilePicUpload(event) {
         const profilePicElement = document.querySelector('#profilePicture');
         if (profilePicElement) {
             profilePicElement.innerHTML = `
-                <img src="${e.target.result}" alt="${currentUser.name}">
+                <img src="${e.target.result}" alt="${currentUser.name}" loading="lazy" width="120" height="120">
                 <input type="file" id="profilePicInput" class="profile-pic-input" accept="image/*" title="Clique para alterar foto">
             `;
             document.getElementById('profilePicInput')?.addEventListener('change', handleProfilePicUpload);
@@ -3861,7 +4354,7 @@ function renderWorkoutList() {
                                                             return `
                                                                 <div class="exercise-item ${ex.completed ? 'completed' : ''} mb-2" data-exercise-id="${exerciseId}">
                                                                     <div class="d-flex align-items-center">
-                                                                        <button class="btn btn-sm ${ex.completed ? 'btn-success' : 'btn-outline-success'} exercise-check me-2" 
+                                                                        <button class="btn btn-sm ${ex.completed ? 'btn-success' : 'btn-outline-success'} exercise-check me-2" aria-label="Alternar exercicio" 
                                                                                 onclick="toggleExercise('${workout.id}', '${exerciseId}')"
                                                                                 title="${ex.completed ? 'Marcar como não feito' : 'Marcar como feito'}">
                                                                             <i class="fas fa-${ex.completed ? 'check-circle' : 'circle'}"></i>
@@ -3898,17 +4391,17 @@ function renderWorkoutList() {
                                             ` : ''}
                                         </div>
                                         <div class="d-flex flex-column gap-2 ms-3">
-                                            <button class="btn btn-sm btn-outline-info" 
+                                            <button class="btn btn-sm btn-outline-info" aria-label="Ver exercicios" 
                                                     onclick="viewWorkoutExercises(${workout.id})" 
                                                     title="Ver/Editar exercícios">
                                                 <i class="fas fa-list"></i>
                                             </button>
-                                            <button class="btn btn-sm ${workout.completed ? 'btn-success' : 'btn-outline-success'}" 
+                                            <button class="btn btn-sm ${workout.completed ? 'btn-success' : 'btn-outline-success'}" aria-label="Alternar missao" 
                                                     onclick="toggleWorkout(${workout.id})" 
                                                     title="${workout.completed ? 'Marcar como pendente' : 'Marcar como concluído'}">
                                                 <i class="fas fa-${workout.completed ? 'check' : 'circle'}"></i>
                                             </button>
-                                            <button class="btn btn-sm btn-outline-danger" 
+                                            <button class="btn btn-sm btn-outline-danger" aria-label="Excluir missao" 
                                                     onclick="deleteWorkout(${workout.id})" 
                                                     title="Excluir missão">
                                                 <i class="fas fa-trash"></i>
@@ -4000,19 +4493,19 @@ function renderResultsList() {
     results.slice().reverse().forEach(result => {
         html += `
             <tr>
-                <td class="text-nowrap"><strong>${result.date}</strong></td>
-                <td class="text-nowrap">${result.weight}</td>
-                <td class="text-nowrap">${result.biceps}</td>
-                <td class="text-nowrap">${result.waist}</td>
-                <td class="text-nowrap">${result.chest}</td>
-                <td class="text-nowrap">${result.hips}</td>
-                <td class="text-nowrap">
+                <td class="text-nowrap" data-label="Data"><strong>${result.date}</strong></td>
+                <td class="text-nowrap" data-label="Peso">${result.weight}</td>
+                <td class="text-nowrap" data-label="Biceps">${result.biceps}</td>
+                <td class="text-nowrap" data-label="Cintura">${result.waist}</td>
+                <td class="text-nowrap" data-label="Peito">${result.chest}</td>
+                <td class="text-nowrap" data-label="Quadril">${result.hips}</td>
+                <td class="text-nowrap" data-label="IMC">
                     <span class="badge ${getBMIBadgeClass(result.bmi)}">
                         ${result.bmi}
                     </span>
                 </td>
-                <td class="text-nowrap">
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteResult(${result.id})">
+                <td class="text-nowrap" data-label="Acoes">
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteResult(${result.id})" aria-label="Excluir medicao">
                         <i class="fas fa-trash"></i>
                     </button>
                 </td>
@@ -4270,11 +4763,11 @@ function loadDietManagement() {
     diets.forEach(diet => {
         html += `
             <tr>
-                <td><strong>${diet.name}</strong></td>
-                <td><small class="text-muted">${diet.description}</small></td>
-                <td>${diet.meals.length}</td>
-                <td>${diet.dailyCalories} kcal</td>
-                <td>
+                <td data-label="Nome"><strong>${diet.name}</strong></td>
+                <td data-label="Descricao"><small class="text-muted">${diet.description}</small></td>
+                <td data-label="Refeicoes">${diet.meals.length}</td>
+                <td data-label="Calorias">${diet.dailyCalories} kcal</td>
+                <td data-label="Acoes">
                     <div class="btn-group btn-group-sm">
                         <button class="btn btn-outline-primary" onclick="setActiveDiet(${diet.id})">
                             <i class="fas fa-check"></i> Usar
