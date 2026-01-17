@@ -2810,9 +2810,10 @@ function initSpeedMap() {
         attributionControl: true
     }).setView([-23.5505, -46.6333], 13);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors'
+    const maptilerKey = '3k33hX1G3TzrtnnDmTSl';
+    L.tileLayer(`https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${maptilerKey}`, {
+        maxZoom: 20,
+        attribution: '&copy; MapTiler &copy; OpenStreetMap contributors'
     }).addTo(speedTracking.map);
 
     speedTracking.polyline = L.polyline([], {
