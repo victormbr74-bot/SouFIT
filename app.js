@@ -16,11 +16,14 @@ let leafletPromise = null;
 const STORAGE_VERSION_KEY = 'soufit_storage_version';
 const STORAGE_VERSION = 'soufit_v2';
 const ACTIVITY_FEED_LIMIT = 50;
-const DAILY_QUEST_POINTS = 25;
-const WORKOUT_POINTS = 50;
-const RUN_POINTS_PER_KM = 10;
-const RUN_POINTS_DAILY_CAP = 120;
-const WEIGHT_LOG_POINTS = 5;
+const POINTS_CONFIG = (window.SoufitCore && window.SoufitCore.points && window.SoufitCore.points.getPointsConfig)
+    ? window.SoufitCore.points.getPointsConfig()
+    : { dailyQuest: 25, workout: 50, runPerKm: 10, runDailyCap: 120, weightLog: 5 };
+const DAILY_QUEST_POINTS = POINTS_CONFIG.dailyQuest;
+const WORKOUT_POINTS = POINTS_CONFIG.workout;
+const RUN_POINTS_PER_KM = POINTS_CONFIG.runPerKm;
+const RUN_POINTS_DAILY_CAP = POINTS_CONFIG.runDailyCap;
+const WEIGHT_LOG_POINTS = POINTS_CONFIG.weightLog;
 const HUNTER_CLASSES = [
     {
         id: 'corredor-fantasma',
@@ -113,7 +116,7 @@ window.addEventListener('hashchange', function() {
 });
 
 // Initialize App Data
-function initializeApp() {
+function initializeApp(options = {}) {
     console.log('Inicializando dados do app...');
     isInitializing = true;
 
@@ -295,11 +298,15 @@ function loadAchievements() {
         achievements = getDefaultAchievements();
     }
 
-    achievements = achievements.map(achievement => ({
-        ...achievement,
-        progressCurrent: Number.isFinite(achievement.progressCurrent) ? achievement.progressCurrent : 0,
-        unlockedAt: achievement.unlockedAt || null
-    }));
+    if (window.SoufitCore && window.SoufitCore.achievements) {
+        achievements = window.SoufitCore.achievements.normalizeAchievements(achievements);
+    } else {
+        achievements = achievements.map(achievement => ({
+            ...achievement,
+            progressCurrent: Number.isFinite(achievement.progressCurrent) ? achievement.progressCurrent : 0,
+            unlockedAt: achievement.unlockedAt || null
+        }));
+    }
 }
 
 // Load Daily Quests
@@ -310,7 +317,7 @@ function loadDailyQuests() {
         dailyQuests = Array.isArray(parsed) ? parsed : [];
         dailyQuests = dailyQuests.map(quest => ({
             ...quest,
-            rewardPoints: Number.isFinite(quest.rewardPoints) ? quest.rewardPoints : DAILY_QUEST_POINTS,
+            rewardPoints: Number.isFinite(quest.rewardPoints) ? quest.rewardPoints : POINTS_CONFIG.dailyQuest,
             dateAssigned: quest.dateAssigned || getLocalDateString()
         }));
         if (!dailyQuests.length || !dailyQuests[0].dateAssigned) {
@@ -395,13 +402,24 @@ function addXP(amount, reason, options = {}) {
     }
 
     const previousRank = getRankFromPoints(hunter.points || 0);
-    hunter.points = Math.max(0, (hunter.points || 0) + amount);
-    hunter.totalPoints = Math.max(0, (hunter.totalPoints || 0) + amount);
+    let updatedHunter = hunter;
 
-    const rankInfo = getRankFromPoints(hunter.points);
-    hunter.rank = `${rankInfo.rankLetter}${rankInfo.subLevel}`;
-    if (`${previousRank.rankLetter}${previousRank.subLevel}` !== hunter.rank) {
-        showRankUpAnimation(hunter.rank);
+    if (window.SoufitCore && window.SoufitCore.points) {
+        updatedHunter = window.SoufitCore.points.applyPoints(hunter, amount);
+    } else {
+        updatedHunter = {
+            ...hunter,
+            points: Math.max(0, (hunter.points || 0) + amount),
+            totalPoints: Math.max(0, (hunter.totalPoints || 0) + amount)
+        };
+    }
+
+    const rankInfo = getRankFromPoints(updatedHunter.points);
+    updatedHunter.rank = `${rankInfo.rankLetter}${rankInfo.subLevel}`;
+    hunterLevels[userId] = updatedHunter;
+
+    if (`${previousRank.rankLetter}${previousRank.subLevel}` !== updatedHunter.rank) {
+        showRankUpAnimation(updatedHunter.rank);
     }
 
     saveHunterLevels();
@@ -748,11 +766,14 @@ function getDefaultAchievements() {
 }
 // Get Default Daily Quests
 function getDefaultDailyQuests(dateAssigned = getLocalDateString()) {
+    if (window.SoufitCore && window.SoufitCore.missions) {
+        return window.SoufitCore.missions.generateDefaultDailyQuests(dateAssigned);
+    }
     return [
-        { id: 1, name: "Treino Di?rio", description: "Complete 1 treino", rewardPoints: DAILY_QUEST_POINTS, completed: false, type: "workout", dateAssigned },
-        { id: 2, name: "Nutri??o Perfeita", description: "Registre 3 refei??es", rewardPoints: DAILY_QUEST_POINTS, completed: false, type: "diet", dateAssigned },
-        { id: 3, name: "Meta de Calorias", description: "Atinga 80% da meta cal?rica", rewardPoints: DAILY_QUEST_POINTS, completed: false, type: "diet", dateAssigned },
-        { id: 4, name: "Medi??o", description: "Registre seu peso atual", rewardPoints: DAILY_QUEST_POINTS, completed: false, type: "measurement", dateAssigned }
+        { id: 1, name: "Treino Diario", description: "Complete 1 treino", rewardPoints: POINTS_CONFIG.dailyQuest, completed: false, type: "workout", dateAssigned },
+        { id: 2, name: "Nutricao Perfeita", description: "Registre 3 refeicoes", rewardPoints: POINTS_CONFIG.dailyQuest, completed: false, type: "diet", dateAssigned },
+        { id: 3, name: "Meta de Calorias", description: "Atinga 80% da meta calorica", rewardPoints: POINTS_CONFIG.dailyQuest, completed: false, type: "diet", dateAssigned },
+        { id: 4, name: "Medicao", description: "Registre seu peso atual", rewardPoints: POINTS_CONFIG.dailyQuest, completed: false, type: "measurement", dateAssigned }
     ];
 }
 // Check Achievements
@@ -766,6 +787,29 @@ function checkAchievements() {
     const now = new Date().toISOString();
     const hunter = hunterLevels[currentUser.id];
     if (!hunter) return;
+
+    if (window.SoufitCore && window.SoufitCore.achievements) {
+        const result = window.SoufitCore.achievements.computeAchievementProgress({
+            achievements,
+            runs: speedRuns,
+            workouts,
+            foodLogs,
+            diets,
+            results,
+            todayISO: getLocalDateString()
+        });
+
+        achievements = result.achievements;
+        result.unlocked.forEach(achievement => {
+            if (achievement.rewardPoints) {
+                addXP(achievement.rewardPoints, `Conquista: ${achievement.name}`, { type: 'achievement', skipAchievements: true });
+            }
+            showAchievementPopup(achievement);
+        });
+
+        saveAchievements();
+        return;
+    }
 
     const runs = Array.isArray(speedRuns) ? speedRuns : [];
     const runsCount = runs.length;
@@ -2013,7 +2057,7 @@ function getWorkoutPage() {
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <label class="form-label">Pontos por Conclusao</label>
-                                    <input type="number" class="form-control" id="workoutXP" value="${WORKOUT_POINTS}" readonly>
+                                    <input type="number" class="form-control" id="workoutXP" value="${POINTS_CONFIG.workout}" readonly>
                                 </div>
                             </div>
                             <div class="mb-3">
@@ -2935,6 +2979,9 @@ function getProfilePage() {
 
 
 function getLocalDateString(date = new Date()) {
+    if (window.SoufitCore && window.SoufitCore.dates) {
+        return window.SoufitCore.dates.toISODateLocal(date);
+    }
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
@@ -2942,6 +2989,9 @@ function getLocalDateString(date = new Date()) {
 }
 
 function addDaysToDateString(dateStr, days) {
+    if (window.SoufitCore && window.SoufitCore.dates) {
+        return window.SoufitCore.dates.addDays(dateStr, days);
+    }
     const [year, month, day] = dateStr.split('-').map(Number);
     const date = new Date(year, month - 1, day);
     date.setDate(date.getDate() + days);
@@ -2949,12 +2999,18 @@ function addDaysToDateString(dateStr, days) {
 }
 
 function compareDateStrings(a, b) {
+    if (window.SoufitCore && window.SoufitCore.dates) {
+        return window.SoufitCore.dates.compareDateStrings(a, b);
+    }
     if (!a || !b) return 0;
     if (a === b) return 0;
     return a < b ? -1 : 1;
 }
 
 function getRankFromPoints(points) {
+    if (window.SoufitCore && window.SoufitCore.ranks) {
+        return window.SoufitCore.ranks.getRankFromPoints(points);
+    }
     const normalized = Math.max(0, Math.floor(points || 0));
     const rankLetters = ['E', 'D', 'C', 'B', 'A', 'S'];
     const rankSize = 2500;
@@ -2976,6 +3032,44 @@ function getRankFromPoints(points) {
 }
 
 function migrateStorageIfNeeded() {
+    if (window.SoufitCore && window.SoufitCore.storage) {
+        window.SoufitCore.storage.migrateStorage({
+            versionKey: STORAGE_VERSION_KEY,
+            targetVersion: STORAGE_VERSION,
+            migrate: () => {
+                const savedUsers = localStorage.getItem('fitTrackUsers');
+                if (savedUsers) {
+                    const parsedUsers = JSON.parse(savedUsers);
+                    Object.values(parsedUsers).forEach(user => {
+                        if (!user.profileThemeColor) user.profileThemeColor = 'blue';
+                        if (!user.hunterClass) user.hunterClass = 'corredor-fantasma';
+                        if (!user.classRewardsClaimed) user.classRewardsClaimed = [];
+                    });
+                    localStorage.setItem('fitTrackUsers', JSON.stringify(parsedUsers));
+                }
+
+                const savedLevels = localStorage.getItem('fitTrackHunterLevels');
+                if (savedLevels) {
+                    const parsedLevels = JSON.parse(savedLevels);
+                    Object.values(parsedLevels).forEach(hunter => {
+                        if (!Number.isFinite(hunter.points)) hunter.points = Number.isFinite(hunter.xp) ? hunter.xp : 0;
+                        if (!Number.isFinite(hunter.totalPoints)) hunter.totalPoints = Number.isFinite(hunter.totalXP) ? hunter.totalXP : hunter.points;
+                        if (!hunter.rank) {
+                            const rankInfo = getRankFromPoints(hunter.points);
+                            hunter.rank = `${rankInfo.rankLetter}${rankInfo.subLevel}`;
+                        }
+                        if (typeof hunter.currentStreak !== 'number') hunter.currentStreak = 0;
+                        if (hunter.lastActiveDate === undefined) hunter.lastActiveDate = null;
+                        if (!hunter.lastCheckedDate) hunter.lastCheckedDate = getLocalDateString();
+                        if (!hunter.dailyPenaltyAppliedDate) hunter.dailyPenaltyAppliedDate = null;
+                    });
+                    localStorage.setItem('fitTrackHunterLevels', JSON.stringify(parsedLevels));
+                }
+            }
+        });
+        return;
+    }
+
     const currentVersion = localStorage.getItem(STORAGE_VERSION_KEY);
     if (currentVersion === STORAGE_VERSION) return;
 
@@ -3019,14 +3113,22 @@ function saveActivityFeed() {
 
 function addActivityItem(item) {
     if (!item) return;
-    const payload = {
-        id: item.id || `activity-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-        type: item.type || 'generic',
-        description: item.description || '',
-        deltaPoints: Number.isFinite(item.deltaPoints) ? item.deltaPoints : 0,
-        metaInfo: item.metaInfo || null,
-        dateTimeISO: item.dateTimeISO || new Date().toISOString()
-    };
+    let payload = null;
+
+    if (window.SoufitCore && window.SoufitCore.activityFeed) {
+        payload = window.SoufitCore.activityFeed.createActivityItem(item);
+    } else {
+        payload = {
+            id: item.id || `activity-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            type: item.type || 'generic',
+            description: item.description || '',
+            deltaPoints: Number.isFinite(item.deltaPoints) ? item.deltaPoints : 0,
+            metaInfo: item.metaInfo || null,
+            dateTimeISO: item.dateTimeISO || new Date().toISOString()
+        };
+    }
+
+    if (!payload) return;
     activityFeed.unshift(payload);
     activityFeed = activityFeed.slice(0, ACTIVITY_FEED_LIMIT);
     saveActivityFeed();
@@ -3038,6 +3140,35 @@ function reconcileDailyState() {
 
     const today = getLocalDateString();
     const hunter = hunterLevels[currentUser.id];
+
+    if (window.SoufitCore && window.SoufitCore.missions) {
+        const result = window.SoufitCore.missions.reconcileDailyState({
+            todayISO: today,
+            dailyQuests: dailyQuests,
+            hunter: hunter,
+            generateMissions: getDefaultDailyQuests,
+            penaltyPoints: -10
+        });
+
+        if (result.penaltyApplied) {
+            addXP(-10, 'Punicao diaria: missao nao concluida', {
+                type: 'penalty',
+                dateTimeISO: new Date().toISOString()
+            });
+        }
+
+        if (result.dailyQuests) {
+            dailyQuests = result.dailyQuests;
+            saveDailyQuests();
+        }
+
+        if (result.hunter) {
+            hunterLevels[currentUser.id] = result.hunter;
+            saveHunterLevels();
+        }
+        return;
+    }
+
     const lastChecked = hunter.lastCheckedDate || today;
     const needsReset = !dailyQuests.length || dailyQuests.some(quest => quest.dateAssigned !== today);
 
@@ -3072,6 +3203,16 @@ function registerDailyActivity(dateStr = getLocalDateString()) {
     if (!currentUser) return;
     const hunter = hunterLevels[currentUser.id];
     if (!hunter) return;
+
+    if (window.SoufitCore && window.SoufitCore.streak) {
+        const updated = window.SoufitCore.streak.registerDailyActivity(hunter, dateStr);
+        if (updated) {
+            hunterLevels[currentUser.id] = updated;
+            saveHunterLevels();
+        }
+        return;
+    }
+
     if (hunter.lastActiveDate === dateStr) return;
 
     const yesterday = addDaysToDateString(dateStr, -1);
@@ -3086,6 +3227,9 @@ function registerDailyActivity(dateStr = getLocalDateString()) {
 
 
 function isDateInStreak(dateStr, hunter) {
+    if (window.SoufitCore && window.SoufitCore.streak) {
+        return window.SoufitCore.streak.isDateInStreak(dateStr, hunter);
+    }
     if (!hunter || !hunter.lastActiveDate || !hunter.currentStreak) return false;
     const start = addDaysToDateString(hunter.lastActiveDate, -(hunter.currentStreak - 1));
     return dateStr >= start && dateStr <= hunter.lastActiveDate;
@@ -3164,20 +3308,10 @@ function parsePtBrDate(dateStr) {
 }
 
 function getLongestConsecutiveStreak(dateStrings) {
-    if (!dateStrings || !dateStrings.length) return 0;
-    const sorted = dateStrings.slice().sort();
-    let longest = 1;
-    let current = 1;
-    for (let i = 1; i < sorted.length; i += 1) {
-        const expected = addDaysToDateString(sorted[i - 1], 1);
-        if (sorted[i] == expected) {
-            current += 1;
-            if (current > longest) longest = current;
-        } else {
-            current = 1;
-        }
+    if (window.SoufitCore && window.SoufitCore.streak) {
+        return window.SoufitCore.streak.getLongestConsecutiveStreak(dateStrings || []);
     }
-    return longest;
+    return 0;
 }
 function ensureCurrentUser() {
     if (currentUser) return;
@@ -3224,7 +3358,7 @@ function normalizeExerciseIds() {
         if (safeWorkout.completed && !safeWorkout.completedAt) {
             safeWorkout.completedAt = safeWorkout.created || getLocalDateString();
         }
-        safeWorkout.xp = Number.isFinite(safeWorkout.xp) ? safeWorkout.xp : WORKOUT_POINTS;
+        safeWorkout.xp = Number.isFinite(safeWorkout.xp) ? safeWorkout.xp : POINTS_CONFIG.workout;
 
         if (!Array.isArray(safeWorkout.exercises)) {
             safeWorkout.exercises = [];
@@ -3615,6 +3749,10 @@ function setSpeedStatus(label, className) {
 }
 
 function parseTimeToSeconds(value) {
+    if (window.SoufitCore && window.SoufitCore.metrics) {
+        const seconds = window.SoufitCore.metrics.parseTimeToSeconds(value);
+        return seconds > 0 ? seconds : null;
+    }
     if (!value) return null;
     const trimmed = value.trim();
     const match = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(trimmed);
@@ -3627,6 +3765,10 @@ function parseTimeToSeconds(value) {
 }
 
 function formatSecondsToTime(totalSeconds) {
+    if (window.SoufitCore && window.SoufitCore.metrics) {
+        if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return '--';
+        return window.SoufitCore.metrics.formatSecondsToTime(totalSeconds);
+    }
     if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return '--';
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -3635,16 +3777,27 @@ function formatSecondsToTime(totalSeconds) {
 }
 
 function calcPaceSecondsPerKm(distanceKm, timeSeconds) {
+    if (window.SoufitCore && window.SoufitCore.metrics) {
+        const pace = window.SoufitCore.metrics.calcPaceSecondsPerKm(timeSeconds, distanceKm);
+        return pace > 0 ? pace : null;
+    }
     if (!distanceKm || !timeSeconds) return null;
     return Math.round(timeSeconds / distanceKm);
 }
 
 function calcSpeedKmh(distanceKm, timeSeconds) {
+    if (window.SoufitCore && window.SoufitCore.metrics) {
+        const speed = window.SoufitCore.metrics.calcSpeedKmh(timeSeconds, distanceKm);
+        return speed > 0 ? speed : null;
+    }
     if (!distanceKm || !timeSeconds) return null;
     return distanceKm / (timeSeconds / 3600);
 }
 
 function normalizeRun(run) {
+    if (window.SoufitCore && window.SoufitCore.runs) {
+        return window.SoufitCore.runs.normalizeRun(run);
+    }
     if (!run) return null;
     const dateISO = run.dateTimeISO || run.dateISO || run.date;
     if (!dateISO) return null;
@@ -3794,24 +3947,34 @@ function handleRunFormSubmit(event) {
     const distanceInput = document.getElementById('speedRunDistance');
     const timeInput = document.getElementById('speedRunTime');
     const notesInput = document.getElementById('speedRunNotes');
-
     const dateValue = dateInput?.value;
     const distanceValue = parseFloat(distanceInput?.value || '0');
     const timeSeconds = parseTimeToSeconds(timeInput?.value || '');
 
-    if (!dateValue) {
-        showToast('Informe a data e hora da corrida', 'warning');
-        return;
+    if (window.SoufitCore && window.SoufitCore.runs) {
+        const validation = window.SoufitCore.runs.validateRunInput({
+            dateValue,
+            distanceValue,
+            timeSeconds
+        });
+        if (!validation.valid) {
+            showToast(validation.message || 'Dados invalidos', 'warning');
+            return;
+        }
+    } else {
+        if (!dateValue) {
+            showToast('Informe a data e hora da corrida', 'warning');
+            return;
+        }
+        if (!distanceValue || distanceValue <= 0) {
+            showToast('Distancia invalida', 'warning');
+            return;
+        }
+        if (!timeSeconds || timeSeconds <= 0) {
+            showToast('Tempo invalido', 'warning');
+            return;
+        }
     }
-    if (!distanceValue || distanceValue <= 0) {
-        showToast('Distancia invalida', 'warning');
-        return;
-    }
-    if (!timeSeconds || timeSeconds <= 0) {
-        showToast('Tempo invalido', 'warning');
-        return;
-    }
-
     const pace = calcPaceSecondsPerKm(distanceValue, timeSeconds);
     const speed = calcSpeedKmh(distanceValue, timeSeconds);
     if (!pace || !speed) {
@@ -3821,10 +3984,17 @@ function handleRunFormSubmit(event) {
 
     const dateObj = new Date(dateValue);
     const dateKey = getLocalDateString(dateObj);
-    const runBasePoints = Math.round(distanceValue * RUN_POINTS_PER_KM);
-    const alreadyEarned = getRunPointsForDate(dateKey);
-    const availablePoints = Math.max(RUN_POINTS_DAILY_CAP - alreadyEarned, 0);
-    const pointsEarned = Math.min(runBasePoints, availablePoints);
+    let pointsEarned = 0;
+    if (window.SoufitCore && window.SoufitCore.points) {
+        const alreadyEarned = getRunPointsForDate(dateKey);
+        const calc = window.SoufitCore.points.computeRunPoints(distanceValue, alreadyEarned, RUN_POINTS_PER_KM, RUN_POINTS_DAILY_CAP);
+        pointsEarned = calc.earned;
+    } else {
+        const runBasePoints = Math.round(distanceValue * RUN_POINTS_PER_KM);
+        const alreadyEarned = getRunPointsForDate(dateKey);
+        const availablePoints = Math.max(RUN_POINTS_DAILY_CAP - alreadyEarned, 0);
+        pointsEarned = Math.min(runBasePoints, availablePoints);
+    }
 
     const run = {
         id: `run-${Date.now()}`,
@@ -4186,7 +4356,7 @@ function saveWorkout() {
     const name = document.getElementById('workoutName').value.trim();
     const day = document.getElementById('workoutDay').value;
     const duration = document.getElementById('workoutDuration').value.trim();
-    const xp = WORKOUT_POINTS;
+    const xp = POINTS_CONFIG.workout;
     
     if (!name) {
         showToast('Por favor, digite um nome para a missão', 'warning');
@@ -4243,7 +4413,7 @@ function saveWorkout() {
     if (workoutForm) {
         workoutForm.reset();
         const xpInput = document.getElementById("workoutXP");
-        if (xpInput) xpInput.value = WORKOUT_POINTS;
+        if (xpInput) xpInput.value = POINTS_CONFIG.workout;
     }
     
     if (exercisesContainer) {
@@ -4317,7 +4487,7 @@ function saveResult() {
     const deltaLabel = previousResult ? ` (${delta < 0 ? '?' : '?'}${Math.abs(delta).toFixed(1)}kg)` : '';
 
     results.push(result);
-    addXP(WEIGHT_LOG_POINTS, `Peso registrado: ${result.weight}kg${deltaLabel}`, {
+    addXP(POINTS_CONFIG.weightLog, `Peso registrado: ${result.weight}kg${deltaLabel}`, {
         type: 'weight',
         dateTimeISO: dateISO
     });
@@ -4575,9 +4745,35 @@ function initWeightChart() {
                 margin-bottom: 8px;
                 opacity: 0.4;
             }
-            @media (max-width: 768px) {
+                        @media (max-width: 768px) {
+                .bar-chart-container {
+                    padding: 12px;
+                }
+                .chart-header {
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: 4px;
+                }
                 .chart-body {
                     height: 180px;
+                    padding-left: 34px;
+                }
+                .y-axis {
+                    width: 34px;
+                }
+                .bars {
+                    left: 34px;
+                }
+                .baseline {
+                    left: 34px;
+                }
+                .chart-info {
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: 4px;
+                }
+                .weight-value {
+                    font-size: 0.7rem;
                 }
             }
         `;
@@ -4859,7 +5055,7 @@ window.toggleWorkout = function(workoutId) {
         if (workout.completed) {
             workout.completedAt = new Date().toISOString();
             if (!workout.pointsAwarded) {
-                addXP(WORKOUT_POINTS, `Treino concluido: ${workout.name}`, {
+                addXP(POINTS_CONFIG.workout, `Treino concluido: ${workout.name}`, {
                     type: 'workout',
                     dateTimeISO: workout.completedAt
                 });
@@ -4897,7 +5093,7 @@ window.toggleExercise = function(workoutId, exerciseId) {
         workout.completed = true;
         workout.completedAt = new Date().toISOString();
         if (!workout.pointsAwarded) {
-            addXP(WORKOUT_POINTS, `Treino concluido: ${workout.name}`, {
+            addXP(POINTS_CONFIG.workout, `Treino concluido: ${workout.name}`, {
                 type: 'workout',
                 dateTimeISO: workout.completedAt
             });
@@ -5217,14 +5413,14 @@ window.completeQuest = function(questId) {
     const today = getLocalDateString();
     quest.completed = true;
     quest.completedAt = new Date().toISOString();
-    addXP(quest.rewardPoints || DAILY_QUEST_POINTS, `Missao diaria: ${quest.name}`, {
+    addXP(quest.rewardPoints || POINTS_CONFIG.dailyQuest, `Missao diaria: ${quest.name}`, {
         type: 'daily_quest',
         dateTimeISO: new Date().toISOString()
     });
     registerDailyActivity(today);
     saveDailyQuests();
     loadPage('home');
-    showToast(`Missao "${quest.name}" completada! +${quest.rewardPoints || DAILY_QUEST_POINTS} pontos`, 'success');
+    showToast(`Missao "${quest.name}" completada! +${quest.rewardPoints || POINTS_CONFIG.dailyQuest} pontos`, 'success');
 };
 
 // Complete Daily Challenge
@@ -5232,7 +5428,6 @@ window.completeDailyChallenge = function() {
     const today = getLocalDateString();
     const todayLogs = foodLogs.filter(log => log.date === today);
     const completedWorkouts = workouts.filter(w => w.completed).length;
-
     let pointsEarned = 0;
     let challenges = [];
 
@@ -5367,24 +5562,22 @@ function showToast(message, type = 'info') {
     if (existingContainer) {
         existingContainer.remove();
     }
-    
+
     const toastContainer = document.createElement('div');
     toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
-    
+
     const toastId = 'toast-' + Date.now();
     const bgClass = type === 'success' ? 'bg-success' : 
                     type === 'error' ? 'bg-danger' : 
                     type === 'warning' ? 'bg-warning' : 'bg-info';
-    
+    const title = type === 'success' ? 'Sucesso' :
+                  type === 'error' ? 'Erro' :
+                  type === 'warning' ? 'Aviso' : 'Informacao';
+
     toastContainer.innerHTML = `
         <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
             <div class="toast-header ${bgClass} text-white">
-                <strong class="me-auto">
-                    ${type === 'success' ? '�
- Sucesso' : 
-                      type === 'error' ? '❌ Erro' : 
-                      type === 'warning' ? '⚠️ Aviso' : 'ℹ️ Informação'}
-                </strong>
+                <strong class="me-auto">${title}</strong>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
             </div>
             <div class="toast-body">
@@ -5392,9 +5585,9 @@ function showToast(message, type = 'info') {
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(toastContainer);
-    
+
     const toastElement = document.getElementById(toastId);
     if (toastElement) {
         const toast = new bootstrap.Toast(toastElement, {
@@ -5402,7 +5595,7 @@ function showToast(message, type = 'info') {
             delay: 5000
         });
         toast.show();
-        
+
         toastElement.addEventListener('hidden.bs.toast', function() {
             if (toastContainer.parentNode) {
                 toastContainer.remove();
@@ -5410,7 +5603,6 @@ function showToast(message, type = 'info') {
         });
     }
 }
-
 // Make functions available globally
 window.loadPage = loadPage;
 window.switchUser = switchUser;
@@ -5427,3 +5619,24 @@ window.stopSpeedTracking = stopSpeedTracking;
 window.resetSpeedTracking = resetSpeedTracking;
 
 console.log('Hunter\'s Gym - Sistema completo carregado com sucesso!');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

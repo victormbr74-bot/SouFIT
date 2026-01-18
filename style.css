@@ -1243,6 +1243,20 @@ p, span, div {
         font-size: 2rem;
     }
 
+    .class-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .theme-picker {
+        width: 100%;
+    }
+
+    .theme-chip {
+        flex: 1 1 auto;
+        text-align: center;
+        min-width: 120px;
+    }
+
     .table-responsive table thead {
         display: none;
     }
@@ -1287,6 +1301,32 @@ p, span, div {
     .workout-item::-webkit-scrollbar-thumb {
         background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
         border-radius: 10px;
+    }
+
+    .btn-group,
+    .btn-group-sm {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .btn-group .btn,
+    .btn-group-sm .btn {
+        width: 100%;
+    }
+
+    .form-control,
+    .form-select {
+        min-height: 44px;
+    }
+
+    .speed-actions,
+    .header-actions {
+        gap: 8px;
+    }
+
+    .speed-actions .btn,
+    .header-actions .btn {
+        width: 100%;
     }
 
     .main-content {
