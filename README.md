@@ -7,6 +7,31 @@ Dashboard fitness com tema Solo Leveling. Navegacao: Dashboard, Treinos, Dieta d
   - `python -m http.server 5500`
   - Acesse `http://localhost:5500/index.html`
 
+## Gamificacao
+### Pontos
+- Missao diaria concluida: +25 pontos
+- Corrida registrada: +10 pontos por km (limite diario de 120 pontos)
+- Treino concluido: +50 pontos (1x por missao)
+- Peso registrado: +5 pontos
+- Penalidade diaria por missao nao concluida: -10 pontos (aplica 1x por dia)
+
+### Ranks
+- Sistema de ranks: E, D, C, B, A, S
+- Cada rank tem 5 subniveis (1 a 5)
+- Cada subnivel = 500 pontos (2.500 pontos por rank)
+- Exemplo: E1 (0-499), E2 (500-999) ... E5 (2000-2499), D1 (2500-2999) ate S5
+
+### Streak e Missoes Diarias
+- Um dia conta como ativo se pelo menos 1 missao diaria for concluida.
+- Se hoje e ativo e ontem foi ativo, o streak aumenta.
+- Se um dia passa sem atividade, o streak volta para 0.
+- Missoes diarias resetam automaticamente na virada do dia.
+- Se alguma missao do dia anterior ficar pendente, aplica penalidade (-10) no dia seguinte (1x).
+
+### Conquistas
+- Conquistas sao recalculadas ao registrar corrida, treino, dieta e peso.
+- Ao desbloquear, aparece popup de conquista e pontos de recompensa.
+
 ## Speed: Historico de Corridas
 - Registre corridas manualmente com data/hora, distancia e tempo.
 - O sistema calcula ritmo e velocidade media.

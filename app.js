@@ -9,9 +9,62 @@ let foodLogs = [];
 let hunterLevels = {};
 let achievements = [];
 let dailyQuests = [];
+let activityFeed = [];
 const validPages = ['home', 'workout', 'diet', 'results', 'speed', 'profile'];
 let isInitializing = false;
 let leafletPromise = null;
+const STORAGE_VERSION_KEY = 'soufit_storage_version';
+const STORAGE_VERSION = 'soufit_v2';
+const ACTIVITY_FEED_LIMIT = 50;
+const DAILY_QUEST_POINTS = 25;
+const WORKOUT_POINTS = 50;
+const RUN_POINTS_PER_KM = 10;
+const RUN_POINTS_DAILY_CAP = 120;
+const WEIGHT_LOG_POINTS = 5;
+const HUNTER_CLASSES = [
+    {
+        id: 'corredor-fantasma',
+        name: 'Corredor Fantasma',
+        description: 'Foco em velocidade e ritmo constante nas corridas.',
+        bonus: 'Bonus: +5% visibilidade no ritmo ideal.',
+        rewardPoints: 25
+    },
+    {
+        id: 'berserker-de-aco',
+        name: 'Berserker de Aco',
+        description: 'Treinos de forca com consistencia brutal.',
+        bonus: 'Bonus: +5% determinacao em treinos pesados.',
+        rewardPoints: 25
+    },
+    {
+        id: 'assassino-metabolico',
+        name: 'Assassino Metabolico',
+        description: 'Controle fino de dieta e deficit calorico.',
+        bonus: 'Bonus: +5% precisao nas metas de calorias.',
+        rewardPoints: 25
+    },
+    {
+        id: 'guardiao-da-resistencia',
+        name: 'Guardiao da Resistencia',
+        description: 'Consistencia e streaks como arma principal.',
+        bonus: 'Bonus: +5% estabilidade em dias ativos.',
+        rewardPoints: 25
+    },
+    {
+        id: 'alquimista-da-performance',
+        name: 'Alquimista da Performance',
+        description: 'Busca por metricas, pace e evolucao precisa.',
+        bonus: 'Bonus: +5% foco em progressao de metricas.',
+        rewardPoints: 25
+    },
+    {
+        id: 'druida-do-corte',
+        name: 'Druida do Corte',
+        description: 'Perda de peso gradual e sustentavel.',
+        bonus: 'Bonus: +5% equilibrio no corte.',
+        rewardPoints: 25
+    }
+];
 const RUNS_STORAGE_KEY = 'soufit_runs_v1';
 const RUNS_STORAGE_VERSION = 1;
 let speedRuns = [];
@@ -30,7 +83,6 @@ let speedTracking = {
     currentMarker: null,
     path: [],
     totalDistance: 0,
-    lastXpKm: 0,
     startTime: null,
     timerId: null
 };
@@ -48,6 +100,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 100);
 });
 
+window.addEventListener('focus', function() {
+    reconcileDailyState();
+});
+
 window.addEventListener('hashchange', function() {
     const page = getPageFromHash();
     if (window.loadPage) {
@@ -60,6 +116,8 @@ window.addEventListener('hashchange', function() {
 function initializeApp() {
     console.log('Inicializando dados do app...');
     isInitializing = true;
+
+    migrateStorageIfNeeded();
     
     const savedUsers = localStorage.getItem('fitTrackUsers');
     if (savedUsers) {
@@ -96,13 +154,25 @@ function initializeApp() {
     loadDietData();
     loadAchievements();
     loadDailyQuests();
+    loadActivityFeed();
     
     if (!currentUser) {
         currentUser = users[1];
         console.log('Usuário padrão definido:', currentUser.name);
     }
+    if (currentUser) {
+        if (!currentUser.profileThemeColor) currentUser.profileThemeColor = 'blue';
+        if (!currentUser.hunterClass) currentUser.hunterClass = 'corredor-fantasma';
+        if (!Array.isArray(currentUser.classRewardsClaimed)) currentUser.classRewardsClaimed = [];
+        users[currentUser.id] = currentUser;
+    }
     
     initializeHunterLevels();
+    if (!options.skipAchievements) {
+        checkAchievements();
+    }
+    reconcileDailyState();
+    applyHunterTheme();
     updateUserSidebar();
     updateHunterLevelDisplay();
     isInitializing = false;
@@ -139,6 +209,14 @@ function loadData() {
         if (savedResults) {
             results = JSON.parse(savedResults);
             console.log(`${results.length} resultados carregados`);
+        results = results.map(result => {
+            const dateKey = result.dateKey || (result.date ? getLocalDateString(parsePtBrDate(result.date)) : getLocalDateString());
+            return {
+                ...result,
+                dateKey: dateKey,
+                dateISO: result.dateISO || new Date(`${dateKey}T00:00:00`).toISOString()
+            };
+        });
         } else {
             results = getDefaultResults();
             console.log('Resultados padrão carregados:', results.length);
@@ -208,119 +286,164 @@ function loadHunterLevels() {
 function loadAchievements() {
     const saved = localStorage.getItem('fitTrackAchievements');
     if (saved) {
-        achievements = JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        achievements = Array.isArray(parsed) ? parsed : [];
+        if (!achievements.length || !achievements[0].condition) {
+            achievements = getDefaultAchievements();
+        }
     } else {
         achievements = getDefaultAchievements();
     }
+
+    achievements = achievements.map(achievement => ({
+        ...achievement,
+        progressCurrent: Number.isFinite(achievement.progressCurrent) ? achievement.progressCurrent : 0,
+        unlockedAt: achievement.unlockedAt || null
+    }));
 }
 
 // Load Daily Quests
 function loadDailyQuests() {
     const saved = localStorage.getItem('fitTrackDailyQuests');
     if (saved) {
-        dailyQuests = JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        dailyQuests = Array.isArray(parsed) ? parsed : [];
+        dailyQuests = dailyQuests.map(quest => ({
+            ...quest,
+            rewardPoints: Number.isFinite(quest.rewardPoints) ? quest.rewardPoints : DAILY_QUEST_POINTS,
+            dateAssigned: quest.dateAssigned || getLocalDateString()
+        }));
+        if (!dailyQuests.length || !dailyQuests[0].dateAssigned) {
+            dailyQuests = getDefaultDailyQuests();
+        }
     } else {
         dailyQuests = getDefaultDailyQuests();
+    }
+}
+
+// Load Activity Feed
+function loadActivityFeed() {
+    ensureCurrentUser();
+    const userId = currentUser?.id || 1;
+    const saved = localStorage.getItem(`fitTrackActivityFeed_${userId}`);
+    if (saved) {
+        const parsed = JSON.parse(saved);
+        activityFeed = Array.isArray(parsed) ? parsed : [];
+    } else {
+        activityFeed = [];
     }
 }
 
 // Initialize Hunter Levels
 function initializeHunterLevels() {
     const userId = currentUser?.id || 1;
-    
+
     if (!hunterLevels[userId]) {
         hunterLevels[userId] = {
-            level: 1,
-            xp: 0,
-            xpToNextLevel: 100,
-            totalXP: 0,
-            rank: "Recruta",
+            points: 0,
+            totalPoints: 0,
+            rank: "E1",
             achievements: [],
-            dailyStreak: 0,
-            lastLogin: new Date().toISOString().split('T')[0],
+            currentStreak: 0,
+            lastActiveDate: null,
+            lastCheckedDate: getLocalDateString(),
+            dailyPenaltyAppliedDate: null,
             totalWorkouts: 0,
             totalFoodLogged: 0,
             totalCalories: 0
         };
     }
-    
-    const today = new Date().toISOString().split('T')[0];
-    const lastLogin = hunterLevels[userId].lastLogin;
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
-    
-    if (lastLogin === yesterdayStr) {
-        hunterLevels[userId].dailyStreak++;
-        addXP(10, "Daily Streak");
-    } else if (lastLogin !== today) {
-        hunterLevels[userId].dailyStreak = 1;
-        addXP(10, "Daily Login");
+
+    const hunter = hunterLevels[userId];
+    if (!Number.isFinite(hunter.points)) {
+        hunter.points = Number.isFinite(hunter.xp) ? hunter.xp : 0;
     }
-    
-    hunterLevels[userId].lastLogin = today;
+    if (!Number.isFinite(hunter.totalPoints)) {
+        hunter.totalPoints = Number.isFinite(hunter.totalXP) ? hunter.totalXP : hunter.points;
+    }
+    if (!hunter.rank) {
+        const rankInfo = getRankFromPoints(hunter.points);
+        hunter.rank = `${rankInfo.rankLetter}${rankInfo.subLevel}`;
+    }
+    if (!hunter.lastCheckedDate) {
+        hunter.lastCheckedDate = getLocalDateString();
+    }
+    if (typeof hunter.currentStreak !== 'number') {
+        hunter.currentStreak = 0;
+    }
+    if (hunter.lastActiveDate === undefined) {
+        hunter.lastActiveDate = null;
+    }
+    if (!hunter.dailyPenaltyAppliedDate) {
+        hunter.dailyPenaltyAppliedDate = null;
+    }
+
     saveHunterLevels();
 }
 
-// Add XP Function
-function addXP(amount, reason) {
+// Add Points Function
+function addXP(amount, reason, options = {}) {
     if (!currentUser) return;
-    
+    if (!Number.isFinite(amount) || amount === 0) return;
+
     const userId = currentUser.id;
     const hunter = hunterLevels[userId];
-    
+
     if (!hunter) {
         initializeHunterLevels();
         return;
     }
-    
-    hunter.xp += amount;
-    hunter.totalXP += amount;
-    
-    const oldLevel = hunter.level;
-    
-    while (hunter.xp >= hunter.xpToNextLevel) {
-        hunter.xp -= hunter.xpToNextLevel;
-        hunter.level++;
-        hunter.xpToNextLevel = Math.floor(hunter.xpToNextLevel * 1.2);
-        
-        if (hunter.level >= 1000) hunter.rank = "Monarca";
-        else if (hunter.level >= 500) hunter.rank = "Mestre";
-        else if (hunter.level >= 200) hunter.rank = "Avançado";
-        else if (hunter.level >= 100) hunter.rank = "Intermediário";
-        else if (hunter.level >= 50) hunter.rank = "Iniciante";
+
+    const previousRank = getRankFromPoints(hunter.points || 0);
+    hunter.points = Math.max(0, (hunter.points || 0) + amount);
+    hunter.totalPoints = Math.max(0, (hunter.totalPoints || 0) + amount);
+
+    const rankInfo = getRankFromPoints(hunter.points);
+    hunter.rank = `${rankInfo.rankLetter}${rankInfo.subLevel}`;
+    if (`${previousRank.rankLetter}${previousRank.subLevel}` !== hunter.rank) {
+        showRankUpAnimation(hunter.rank);
     }
-    
-    if (hunter.level > oldLevel) {
-        showLevelUpAnimation(hunter.level);
-    }
-    
+
     saveHunterLevels();
     updateHunterLevelDisplay();
-    
-    showToast(`+${amount} XP - ${reason}`, 'success');
-    
-    checkAchievements();
+
+    if (!options.silentToast) {
+        showToast(`${amount > 0 ? '+' : ''}${amount} pontos - ${reason}`, amount > 0 ? 'success' : 'warning');
+    }
+
+    if (!options.suppressActivity) {
+        addActivityItem({
+            type: options.type || 'points',
+            description: reason,
+            deltaPoints: amount,
+            metaInfo: options.metaInfo,
+            dateTimeISO: options.dateTimeISO
+        });
+    }
+
+    if (!options.skipAchievements) {
+        checkAchievements();
+    }
 }
 
-// Show Level Up Animation
-function showLevelUpAnimation(level) {
+// Show Rank Up Animation
+function showRankUpAnimation(rankLabel) {
     const animationHtml = `
         <div class="level-up-animation">
             <div class="level-up-content">
-                <div class="hunter-level-display">LEVEL UP!</div>
-                <div class="new-level">Nível ${level}</div>
-                <div class="xp-gain">+100 XP</div>
+                <div class="hunter-level-display">RANK UP!</div>
+                <div class="new-level">Rank ${rankLabel}</div>
+                <div class="xp-gain">+500 pontos</div>
                 <div class="confetti"></div>
             </div>
         </div>
     `;
-    
+
     const existingAnimation = document.querySelector('.level-up-animation');
     if (existingAnimation) existingAnimation.remove();
-    
+
     document.body.insertAdjacentHTML('beforeend', animationHtml);
-    
+
     setTimeout(() => {
         const animation = document.querySelector('.level-up-animation');
         if (animation) animation.remove();
@@ -331,31 +454,34 @@ function showLevelUpAnimation(level) {
 function updateHunterLevelDisplay() {
     const container = document.getElementById('hunterLevelDisplay');
     if (!container || !currentUser) return;
-    
+
     const hunter = hunterLevels[currentUser.id];
     if (!hunter) {
         initializeHunterLevels();
         return;
     }
-    
-    const progress = (hunter.xp / hunter.xpToNextLevel) * 100;
-    
+
+    const points = hunter.points || 0;
+    const rankInfo = getRankFromPoints(points);
+    const progress = rankInfo.nextThreshold ? (rankInfo.progressInSubLevel / 500) * 100 : 100;
+    const nextPoints = rankInfo.nextThreshold ? rankInfo.nextThreshold - points : 0;
+
     container.innerHTML = `
         <div class="text-center">
-            <div class="hunter-level mb-2">${hunter.level}</div>
+            <div class="hunter-level mb-2">${rankInfo.rankLetter}${rankInfo.subLevel}</div>
             <div class="mb-2">
-                <small class="text-neon-blue">${hunter.rank}</small>
+                <small class="text-neon-blue">Rank atual</small>
             </div>
             <div class="level-progress mb-2">
                 <div class="level-progress-bar" style="width: ${progress}%"></div>
             </div>
             <div class="d-flex justify-content-between">
-                <small class="text-muted">${hunter.xp} XP</small>
-                <small class="text-neon-purple">${hunter.xpToNextLevel} XP</small>
+                <small class="text-muted">${points} pts</small>
+                <small class="text-neon-purple">${rankInfo.nextThreshold ? `+${nextPoints}` : 'Max'}</small>
             </div>
             <div class="mt-3">
-                <small class="text-muted d-block">Streak: ${hunter.dailyStreak} dias</small>
-                <small class="text-muted">Total XP: ${hunter.totalXP}</small>
+                <small class="text-muted d-block">Streak: ${hunter.currentStreak || 0} dias</small>
+                <small class="text-muted">Total pontos: ${hunter.totalPoints || points}</small>
             </div>
         </div>
     `;
@@ -369,6 +495,10 @@ function saveData() {
         
         localStorage.setItem('fitTrackUsers', JSON.stringify(users));
         localStorage.setItem('fitTrackCurrentUser', JSON.stringify(currentUser));
+                loadActivityFeed();
+                applyHunterTheme();
+                reconcileDailyState();
+                checkAchievements();
         localStorage.setItem(`fitTrackWorkouts_${currentUser.id}`, JSON.stringify(workouts));
         localStorage.setItem(`fitTrackResults_${currentUser.id}`, JSON.stringify(results));
         localStorage.setItem('fitTrackProfilePics', JSON.stringify(profilePics));
@@ -377,6 +507,7 @@ function saveData() {
         saveHunterLevels();
         saveAchievements();
         saveDailyQuests();
+        saveActivityFeed();
         
         console.log('Todos os dados salvos com sucesso!');
     } catch (error) {
@@ -398,6 +529,7 @@ function saveDietData() {
         localStorage.setItem(`fitTrackFoodLogs_${userId}`, JSON.stringify(foodLogs));
         
         console.log('Dados de dieta salvos!');
+        checkAchievements();
     } catch (error) {
         console.error('Erro ao salvar dados de dieta:', error);
         showToast('Erro ao salvar dados de dieta', 'error');
@@ -417,6 +549,10 @@ function saveAchievements() {
 // Save Daily Quests
 function saveDailyQuests() {
     localStorage.setItem('fitTrackDailyQuests', JSON.stringify(dailyQuests));
+                if (data.speedRuns) {
+                    speedRuns = data.speedRuns.map(normalizeRun).filter(run => run && run.dateTimeISO);
+                    saveRunsToStorage();
+                }
 }
 
 // Get Default Workouts
@@ -595,100 +731,148 @@ function getDefaultDiets() {
 // Get Default Achievements
 function getDefaultAchievements() {
     return [
-        { id: 1, name: "Primeiros Passos", description: "Complete seu primeiro treino", xp: 50, icon: "🎯", unlocked: false, type: "workout" },
-        { id: 2, name: "Nutrição Básica", description: "Registre sua primeira refeição", xp: 30, icon: "🍎", unlocked: false, type: "diet" },
-        { id: 3, name: "Consistência", description: "Mantenha um streak de 7 dias", xp: 100, icon: "🔥", unlocked: false, type: "streak" },
-        { id: 4, name: "Iniciante", description: "Alcance o nível 10", xp: 150, icon: "⭐", unlocked: false, type: "level" },
-        { id: 5, name: "Disciplina", description: "Complete 10 treinos", xp: 200, icon: "💪", unlocked: false, type: "workout" },
-        { id: 6, name: "Nutrição Avançada", description: "Registre 50 alimentos", xp: 250, icon: "🥦", unlocked: false, type: "diet" },
-        { id: 7, name: "Veterano", description: "Alcance o nível 50", xp: 500, icon: "🏆", unlocked: false, type: "level" },
-        { id: 8, name: "Mestre do Treino", description: "Complete 100 treinos", xp: 1000, icon: "👑", unlocked: false, type: "workout" }
+        { id: 1, name: "Primeiros Passos", description: "Registre 1 corrida", icon: "??", condition: "run_count", progressCurrent: 0, goal: 1, rewardPoints: 50, unlockedAt: null },
+        { id: 2, name: "5K", description: "Complete 5km em uma corrida", icon: "??", condition: "run_distance", progressCurrent: 0, goal: 5, rewardPoints: 80, unlockedAt: null },
+        { id: 3, name: "10K", description: "Complete 10km em uma corrida", icon: "??", condition: "run_distance", progressCurrent: 0, goal: 10, rewardPoints: 120, unlockedAt: null },
+        { id: 4, name: "Ritmo Mortal", description: "Alcance ritmo ? 5:30 min/km", icon: "?", condition: "run_pace", progressCurrent: 0, goal: 1, rewardPoints: 120, unlockedAt: null },
+        { id: 5, name: "Maratona do M?s", description: "Some 42km no m?s", icon: "??", condition: "run_month_km", progressCurrent: 0, goal: 42, rewardPoints: 200, unlockedAt: null },
+        { id: 6, name: "Disciplina de Ferro", description: "Treine 3 dias seguidos", icon: "???", condition: "workout_streak", progressCurrent: 0, goal: 3, rewardPoints: 80, unlockedAt: null },
+        { id: 7, name: "Inabal?vel", description: "Treine 7 dias seguidos", icon: "??", condition: "workout_streak", progressCurrent: 0, goal: 7, rewardPoints: 150, unlockedAt: null },
+        { id: 8, name: "Hunter Incans?vel", description: "Complete 15 treinos no m?s", icon: "??", condition: "workout_month", progressCurrent: 0, goal: 15, rewardPoints: 180, unlockedAt: null },
+        { id: 9, name: "Dieta do Ca?ador", description: "Registre dieta por 5 dias", icon: "??", condition: "diet_days", progressCurrent: 0, goal: 5, rewardPoints: 70, unlockedAt: null },
+        { id: 10, name: "D?ficit Controlado", description: "Bata a meta de calorias por 7 dias", icon: "??", condition: "diet_deficit", progressCurrent: 0, goal: 7, rewardPoints: 120, unlockedAt: null },
+        { id: 11, name: "Primeira Queda", description: "Perda total de 1kg", icon: "??", condition: "weight_loss", progressCurrent: 0, goal: 1, rewardPoints: 60, unlockedAt: null },
+        { id: 12, name: "Evolu??o Vis?vel", description: "Perda total de 5kg", icon: "??", condition: "weight_loss", progressCurrent: 0, goal: 5, rewardPoints: 140, unlockedAt: null },
+        { id: 13, name: "Transforma??o", description: "Perda total de 10kg", icon: "??", condition: "weight_loss", progressCurrent: 0, goal: 10, rewardPoints: 260, unlockedAt: null }
     ];
 }
-
 // Get Default Daily Quests
-function getDefaultDailyQuests() {
+function getDefaultDailyQuests(dateAssigned = getLocalDateString()) {
     return [
-        { id: 1, name: "Treino Diário", description: "Complete 1 treino", xp: 25, completed: false, type: "workout" },
-        { id: 2, name: "Nutrição Perfeita", description: "Registre 3 refeições", xp: 15, completed: false, type: "diet" },
-        { id: 3, name: "Meta de Calorias", description: "Atinga 80% da meta calórica", xp: 20, completed: false, type: "diet" },
-        { id: 4, name: "Medição", description: "Registre seu peso atual", xp: 10, completed: false, type: "measurement" }
+        { id: 1, name: "Treino Di?rio", description: "Complete 1 treino", rewardPoints: DAILY_QUEST_POINTS, completed: false, type: "workout", dateAssigned },
+        { id: 2, name: "Nutri??o Perfeita", description: "Registre 3 refei??es", rewardPoints: DAILY_QUEST_POINTS, completed: false, type: "diet", dateAssigned },
+        { id: 3, name: "Meta de Calorias", description: "Atinga 80% da meta cal?rica", rewardPoints: DAILY_QUEST_POINTS, completed: false, type: "diet", dateAssigned },
+        { id: 4, name: "Medi??o", description: "Registre seu peso atual", rewardPoints: DAILY_QUEST_POINTS, completed: false, type: "measurement", dateAssigned }
     ];
 }
-
 // Check Achievements
 function checkAchievements() {
     if (!currentUser) return;
-    
-    const userId = currentUser.id;
-    const hunter = hunterLevels[userId];
-    
+
+    if (!speedRunsLoaded) {
+        loadRunsFromStorage();
+    }
+
+    const now = new Date().toISOString();
+    const hunter = hunterLevels[currentUser.id];
     if (!hunter) return;
-    
-    const completedWorkouts = workouts.filter(w => w.completed).length;
-    const todayLogs = foodLogs.filter(log => log.date === new Date().toISOString().split('T')[0]);
-    
-    achievements.forEach(achievement => {
-        if (achievement.unlocked) return;
-        
-        let shouldUnlock = false;
-        
-        switch(achievement.type) {
-            case 'workout':
-                if (achievement.name === "Primeiros Passos" && completedWorkouts >= 1) shouldUnlock = true;
-                if (achievement.name === "Disciplina" && completedWorkouts >= 10) shouldUnlock = true;
-                if (achievement.name === "Mestre do Treino" && completedWorkouts >= 100) shouldUnlock = true;
-                break;
-            case 'diet':
-                if (achievement.name === "Nutrição Básica" && todayLogs.length >= 1) shouldUnlock = true;
-                if (achievement.name === "Nutrição Avançada" && foodLogs.length >= 50) shouldUnlock = true;
-                break;
-            case 'streak':
-                if (achievement.name === "Consistência" && hunter.dailyStreak >= 7) shouldUnlock = true;
-                break;
-            case 'level':
-                if (achievement.name === "Iniciante" && hunter.level >= 10) shouldUnlock = true;
-                if (achievement.name === "Veterano" && hunter.level >= 50) shouldUnlock = true;
-                break;
+
+    const runs = Array.isArray(speedRuns) ? speedRuns : [];
+    const runsCount = runs.length;
+    const maxRunDistance = runsCount ? Math.max(...runs.map(run => run.distanceKm || 0)) : 0;
+    const bestPace = runsCount ? Math.min(...runs.map(run => run.avgPaceSecPerKm || Infinity)) : Infinity;
+
+    const today = new Date();
+    const monthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    const runsMonthKm = runs.reduce((sum, run) => {
+        const dateKey = run.dateTimeISO ? getLocalDateString(new Date(run.dateTimeISO)) : null;
+        if (!dateKey) return sum;
+        return dateKey.slice(0, 7) === monthKey ? sum + (run.distanceKm || 0) : sum;
+    }, 0);
+
+    const completedWorkouts = workouts.filter(workout => workout.completed);
+    const workoutDates = Array.from(new Set(completedWorkouts.map(workout => {
+        if (workout.completedAt) return getLocalDateString(new Date(workout.completedAt));
+        if (workout.created) return workout.created;
+        return getLocalDateString();
+    }))).sort();
+    const workoutStreak = getLongestConsecutiveStreak(workoutDates);
+    const workoutsThisMonth = completedWorkouts.filter(workout => {
+        const dateKey = workout.completedAt ? getLocalDateString(new Date(workout.completedAt)) : workout.created;
+        return dateKey && dateKey.slice(0, 7) === monthKey;
+    }).length;
+
+    const foodLogsByDate = {};
+    foodLogs.forEach(log => {
+        if (!log.date) return;
+        if (!foodLogsByDate[log.date]) foodLogsByDate[log.date] = [];
+        foodLogsByDate[log.date].push(log);
+    });
+    const dietDays = Object.keys(foodLogsByDate).length;
+
+    let deficitDays = 0;
+    const currentDiet = diets.length ? diets[0] : null;
+    if (currentDiet) {
+        Object.values(foodLogsByDate).forEach(logs => {
+            const totalCalories = logs.reduce((sum, log) => sum + (log.calories || 0), 0);
+            if (totalCalories <= currentDiet.dailyCalories) deficitDays += 1;
+        });
+    }
+
+    const sortedResults = results.slice().sort((a, b) => parsePtBrDate(a.date) - parsePtBrDate(b.date));
+    let weightLoss = 0;
+    if (sortedResults.length > 1) {
+        const startWeight = sortedResults[0].weight;
+        const lastWeight = sortedResults[sortedResults.length - 1].weight;
+        if (startWeight && lastWeight) {
+            weightLoss = Math.max(0, startWeight - lastWeight);
         }
-        
-        if (shouldUnlock) {
+    }
+
+    const conditionMap = {
+        run_count: runsCount,
+        run_distance: maxRunDistance,
+        run_pace: bestPace <= 330 ? 1 : 0,
+        run_month_km: runsMonthKm,
+        workout_streak: workoutStreak,
+        workout_month: workoutsThisMonth,
+        diet_days: dietDays,
+        diet_deficit: deficitDays,
+        weight_loss: weightLoss
+    };
+
+    achievements.forEach(achievement => {
+        const progress = conditionMap[achievement.condition] !== undefined ? conditionMap[achievement.condition] : 0;
+        achievement.progressCurrent = Math.min(progress, achievement.goal);
+        achievement.unlocked = Boolean(achievement.unlockedAt);
+
+        if (!achievement.unlocked && progress >= achievement.goal) {
+            achievement.unlockedAt = now;
             achievement.unlocked = true;
-            if (!hunter.achievements.includes(achievement.id)) {
-                hunter.achievements.push(achievement.id);
+            if (achievement.rewardPoints) {
+                addXP(achievement.rewardPoints, `Conquista: ${achievement.name}`, { type: 'achievement', skipAchievements: true });
             }
-            addXP(achievement.xp, `Conquista: ${achievement.name}`);
             showAchievementPopup(achievement);
         }
     });
-    
+
     saveAchievements();
-    saveHunterLevels();
 }
 
 // Show Achievement Popup
 function showAchievementPopup(achievement) {
+    const reward = achievement.rewardPoints ? `+${achievement.rewardPoints} pts` : '';
     const popupHtml = `
         <div class="achievement-popup">
             <div class="achievement-icon">${achievement.icon}</div>
             <div class="achievement-content">
-                <h6>Conquista Desbloqueada!</h6>
+                <small class="text-neon-yellow">CONQUISTA DESBLOQUEADA</small>
                 <strong>${achievement.name}</strong>
                 <p class="mb-0">${achievement.description}</p>
-                <small class="text-neon-yellow">+${achievement.xp} XP</small>
+                ${reward ? `<small class="text-neon-yellow">${reward}</small>` : ''}
             </div>
         </div>
     `;
-    
+
     const existingPopup = document.querySelector('.achievement-popup');
     if (existingPopup) existingPopup.remove();
-    
+
     document.body.insertAdjacentHTML('beforeend', popupHtml);
-    
+
     setTimeout(() => {
         const popup = document.querySelector('.achievement-popup');
         if (popup) popup.remove();
-    }, 5000);
+    }, 4000);
 }
 
 // Setup Event Listeners
@@ -918,6 +1102,9 @@ function switchUser(userId) {
     }
     
     currentUser = newUser;
+    if (!currentUser.profileThemeColor) currentUser.profileThemeColor = 'blue';
+    if (!currentUser.hunterClass) currentUser.hunterClass = 'corredor-fantasma';
+    if (!Array.isArray(currentUser.classRewardsClaimed)) currentUser.classRewardsClaimed = [];
     localStorage.setItem('fitTrackCurrentUser', JSON.stringify(currentUser));
     
     const userIdForLoad = currentUser.id;
@@ -933,6 +1120,9 @@ function switchUser(userId) {
     
     const savedFoodLogs = localStorage.getItem(`fitTrackFoodLogs_${userIdForLoad}`);
     foodLogs = savedFoodLogs ? JSON.parse(savedFoodLogs) : [];
+    loadActivityFeed();
+    reconcileDailyState();
+    applyHunterTheme();
     
     updateUserSidebar();
     updateHunterLevelDisplay();
@@ -967,7 +1157,10 @@ function addUser() {
         age: age,
         experience: experience,
         goal: goal,
-        profilePic: profilePic
+        profilePic: profilePic,
+        profileThemeColor: 'blue',
+        hunterClass: 'corredor-fantasma',
+        classRewardsClaimed: []
     };
     
     localStorage.setItem(`fitTrackWorkouts_${newId}`, JSON.stringify([]));
@@ -1175,6 +1368,10 @@ function exportAllUsersData() {
         hunterLevels: hunterLevels,
         achievements: achievements,
         dailyQuests: dailyQuests,
+            activityFeed: activityFeed,
+            speedRuns: speedRuns,
+            activityFeed: activityFeed,
+            speedRuns: speedRuns,
         exportDate: new Date().toISOString(),
         version: '3.0.0'
     };
@@ -1184,13 +1381,15 @@ function exportAllUsersData() {
         const userResults = JSON.parse(localStorage.getItem(`fitTrackResults_${user.id}`)) || [];
         const userDiets = JSON.parse(localStorage.getItem(`fitTrackDiets_${user.id}`)) || [];
         const userFoodLogs = JSON.parse(localStorage.getItem(`fitTrackFoodLogs_${user.id}`)) || [];
+        const userActivityFeed = JSON.parse(localStorage.getItem(`fitTrackActivityFeed_${user.id}`)) || [];
         
         if (!allData.userData) allData.userData = {};
         allData.userData[user.id] = {
             workouts: userWorkouts,
             results: userResults,
             diets: userDiets,
-            foodLogs: userFoodLogs
+            foodLogs: userFoodLogs,
+            activityFeed: userActivityFeed
         };
     });
     
@@ -1198,7 +1397,7 @@ function exportAllUsersData() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `hunters-gym-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `hunters-gym-backup-${getLocalDateString()}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1243,11 +1442,15 @@ function importAllUsersData() {
                 localStorage.setItem('fitTrackHunterLevels', JSON.stringify(hunterLevels));
                 localStorage.setItem('fitTrackAchievements', JSON.stringify(achievements));
                 localStorage.setItem('fitTrackDailyQuests', JSON.stringify(dailyQuests));
+                if (data.speedRuns) {
+                    speedRuns = data.speedRuns.map(normalizeRun).filter(run => run && run.dateTimeISO);
+                    saveRunsToStorage();
+                }
                 
                 if (data.userData) {
                     Object.keys(data.userData).forEach(userId => {
                         const userData = data.userData[userId];
-                        ['workouts', 'results', 'diets', 'foodLogs'].forEach(type => {
+                        ['workouts', 'results', 'diets', 'foodLogs', 'activityFeed'].forEach(type => {
                             if (userData[type]) {
                                 localStorage.setItem(`fitTrack${type.charAt(0).toUpperCase() + type.slice(1)}_${userId}`, JSON.stringify(userData[type]));
                             }
@@ -1375,7 +1578,7 @@ function getHomePage() {
     const totalWorkouts = workouts.length;
     const completionRate = totalWorkouts > 0 ? Math.round((completedWorkouts / totalWorkouts) * 100) : 0;
     
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
     const todayLogs = foodLogs.filter(log => log.date === today);
     const totalCalories = todayLogs.reduce((sum, log) => sum + (log.calories || 0), 0);
     const currentDiet = diets.length > 0 ? diets[0] : null;
@@ -1383,6 +1586,11 @@ function getHomePage() {
     const calorieProgress = Math.min((totalCalories / dailyGoal) * 100, 100);
     
     const hunter = hunterLevels[currentUser.id];
+    const points = hunter?.points || 0;
+    const rankInfo = getRankFromPoints(points);
+    const rankLabel = `${rankInfo.rankLetter}${rankInfo.subLevel}`;
+    const rankProgress = rankInfo.nextThreshold ? (rankInfo.progressInSubLevel / 500) * 100 : 100;
+    const pointsToNext = rankInfo.nextThreshold ? rankInfo.nextThreshold - points : 0;
     const unlockedAchievements = achievements.filter(a => a.unlocked).length;
     const totalAchievements = achievements.length;
     
@@ -1401,13 +1609,14 @@ function getHomePage() {
                                 <div class="col-md-8">
                                     <h1 class="mb-2">Bem-vindo, Caçador ${currentUser.name}! ⚔️</h1>
                                     <p class="lead mb-0">
-                                        ${hunter?.level >= 100 ? '👑 Você é um verdadeiro Monarca!' : 
-                                          hunter?.level >= 50 ? '🔥 Continue evoluindo, Guerreiro!' : 
-                                          '🎯 Sua jornada de leveling começa aqui!'}
+                                        ${rankInfo.rankLetter === 'S' ? 'Voce alcancou o apice do rank S.' :
+                                          rankInfo.rankLetter === 'A' ? 'Elite cacadora em evolucao.' :
+                                          rankInfo.rankLetter === 'B' ? 'Progresso solido. Continue firme!' :
+                                          'Sua jornada comeca agora.'}
                                     </p>
                                     <div class="mt-3 d-flex align-items-center">
-                                        <span class="hunter-rank me-3">${hunter?.rank || 'Recruta'}</span>
-                                        <span class="level-badge">Nível ${hunter?.level || 1}</span>
+                                        <span class="hunter-rank me-3">${rankLabel}</span>
+                                        <span class="level-badge">${points} pts</span>
                                         <span class="badge bg-success ms-3">
                                             ${unlockedAchievements}/${totalAchievements} Conquistas
                                         </span>
@@ -1468,34 +1677,33 @@ function getHomePage() {
                             <div class="stat-icon">
                                 <i class="fas fa-trophy"></i>
                             </div>
-                            <h2 class="text-neon-green mb-1">${hunter?.level || 1}</h2>
-                            <h6 class="text-muted mb-3">Nível do Caçador</h6>
+                            <h2 class="text-neon-green mb-1">${rankLabel}</h2>
+                            <h6 class="text-muted mb-3">Rank Atual</h6>
                             <div class="level-progress" style="height:8px">
-                                <div class="level-progress-bar" style="width:${hunter ? (hunter.xp / hunter.xpToNextLevel) * 100 : 0}%"></div>
+                                <div class="level-progress-bar" style="width:${rankProgress}%"></div>
                             </div>
-                            <small class="text-muted mt-2 d-block">${hunter?.xp || 0}/${hunter?.xpToNextLevel || 100} XP</small>
+                            <small class="text-muted mt-2 d-block">${points} pts${rankInfo.nextThreshold ? ` (+${pointsToNext})` : " Max"}</small>
                         </div>
                     </div>
                 </div>
-                
                 <div class="col-md-3 col-sm-6 mb-3">
                     <div class="card stat-card h-100">
                         <div class="card-body">
                             <div class="stat-icon">
                                 <i class="fas fa-bolt"></i>
                             </div>
-                            <h2 class="text-neon-yellow mb-1">${hunter?.dailyStreak || 0}</h2>
+                            <h2 class="text-neon-yellow mb-1">${hunter?.currentStreak || 0}</h2>
                             <h6 class="text-muted mb-3">Dias Consecutivos</h6>
                             <div class="streak-counter mt-3">
                                 ${Array.from({length: 7}, (_, i) => {
-                                    const date = new Date();
-                                    date.setDate(date.getDate() - (6 - i));
-                                    const dateStr = date.toISOString().split('T')[0];
-                                    const isActive = hunter?.lastLogin === dateStr;
-                                    const isToday = new Date().toISOString().split('T')[0] === dateStr;
+                                    const todayStr = getLocalDateString();
+                                    const dateStr = addDaysToDateString(todayStr, i - 6);
+                                    const isActive = isDateInStreak(dateStr, hunter);
+                                    const isToday = todayStr === dateStr;
+                                    const labelDate = new Date(`${dateStr}T00:00:00`);
                                     return `
                                         <div class="streak-day ${isActive ? 'active' : ''} ${isToday ? 'current' : ''}">
-                                            ${date.getDate()}
+                                            ${labelDate.getDate()}
                                         </div>
                                     `;
                                 }).join('')}
@@ -1528,7 +1736,7 @@ function getHomePage() {
                                 }
                             </div>
                             <div class="quest-reward mt-2">
-                                <small><i class="fas fa-coins me-1 text-neon-yellow"></i> Recompensa: ${quest.xp} XP</small>
+                                <small><i class="fas fa-coins me-1 text-neon-yellow"></i> Recompensa: ${quest.rewardPoints} pts</small>
                             </div>
                         </div>
                     `).join('')}
@@ -1596,7 +1804,7 @@ function getHomePage() {
                                 <div class="achievement-icon">${achievement.icon}</div>
                                 <div class="achievement-info">
                                     <small class="d-block">${achievement.name}</small>
-                                    <small class="text-muted">${achievement.xp} XP</small>
+                                    <small class="text-muted">${achievement.rewardPoints} pts</small>
                                 </div>
                             </div>
                         `).join('')}
@@ -1669,76 +1877,79 @@ function getHomePage() {
 }
 
 // Get Recent Activity
-function getRecentActivity() {
-    const today = new Date().toISOString().split('T')[0];
-    const todayLogs = foodLogs.filter(log => log.date === today).slice(-5).reverse();
-    const recentWorkouts = workouts.filter(w => w.completed).slice(-3).reverse();
-    const recentResults = results.slice(-2).reverse();
-    
-    let activities = [];
-    
-    todayLogs.forEach(log => {
-        activities.push({
-            time: log.time,
-            type: 'food',
-            text: `Consumiu ${log.foodName} (${log.calories} kcal)`,
-            icon: '🍎',
-            timestamp: new Date(`${today}T${log.time}`).getTime()
-        });
-    });
-    
-    recentWorkouts.forEach(workout => {
-        activities.push({
-            time: 'Hoje',
-            type: 'workout',
-            text: `Completou ${workout.name}`,
-            icon: '💪',
-            timestamp: new Date().getTime()
-        });
-    });
-    
-    recentResults.forEach(result => {
-        activities.push({
-            time: result.date,
-            type: 'measurement',
-            text: `Registrou ${result.weight}kg`,
-            icon: '⚖️',
-            timestamp: new Date(result.date.split('/').reverse().join('-')).getTime()
-        });
-    });
-    
-    if (hunterLevels[currentUser.id]?.totalXP > 0) {
-        activities.push({
-            time: 'Hoje',
-            type: 'xp',
-            text: `Ganhou ${hunterLevels[currentUser.id].totalXP} XP total`,
-            icon: '⭐',
-            timestamp: new Date().getTime()
-        });
+function getActivityIcon(type) {
+    switch (type) {
+        case 'run':
+            return '??';
+        case 'workout':
+            return '??';
+        case 'weight':
+            return '??';
+        case 'daily_quest':
+            return '??';
+        case 'penalty':
+            return '??';
+        case 'achievement':
+            return '??';
+        case 'class':
+            return '??';
+        default:
+            return '?';
     }
-    
-    activities.sort((a, b) => b.timestamp - a.timestamp);
-    
-    return activities.slice(0, 8).map(activity => `
-        <div class="timeline-item mb-3">
-            <div class="d-flex">
-                <div class="timeline-icon me-3">
-                    <span style="font-size: 1.5rem;">${activity.icon}</span>
-                </div>
-                <div class="flex-grow-1">
-                    <div class="d-flex justify-content-between">
-                        <h6 class="mb-1">${activity.text}</h6>
-                        <small class="text-muted">${activity.time}</small>
-                    </div>
-                    <small class="text-muted">${activity.type === 'food' ? 'Nutrição' : activity.type === 'workout' ? 'Treino' : activity.type === 'measurement' ? 'Medição' : 'Progresso'}</small>
-                </div>
-            </div>
-        </div>
-    `).join('') || `
+}
+
+function getActivityLabel(type) {
+    switch (type) {
+        case 'run':
+            return 'Corrida';
+        case 'workout':
+            return 'Treino';
+        case 'weight':
+            return 'Peso';
+        case 'daily_quest':
+            return 'Missao diaria';
+        case 'penalty':
+            return 'Penalidade';
+        case 'achievement':
+            return 'Conquista';
+        case 'class':
+            return 'Classe';
+        default:
+            return 'Progresso';
+    }
+}
+
+function getRecentActivity() {
+    const feed = activityFeed.slice().sort((a, b) => new Date(b.dateTimeISO).getTime() - new Date(a.dateTimeISO).getTime());
+
+    if (!feed.length) {
+        return `
         <div class="text-center py-4">
             <p class="text-muted">Nenhuma atividade recente. Comece sua jornada!</p>
         </div>
     `;
+    }
+
+    return feed.slice(0, 8).map(activity => {
+        const delta = `${activity.deltaPoints > 0 ? '+' : ''}${activity.deltaPoints} pts`;
+        const dateLabel = new Date(activity.dateTimeISO).toLocaleString('pt-BR');
+        return `
+        <div class="timeline-item mb-3">
+            <div class="d-flex">
+                <div class="timeline-icon me-3">
+                    <span style="font-size: 1.5rem;">${getActivityIcon(activity.type)}</span>
+                </div>
+                <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between">
+                        <h6 class="mb-1">${activity.description}</h6>
+                        <small class="text-muted">${dateLabel}</small>
+                    </div>
+                    <small class="text-muted">${getActivityLabel(activity.type)} ? ${delta}</small>
+                </div>
+            </div>
+        </div>
+    `;
+    }).join('');
 }
 
 // Workout Page
@@ -1801,9 +2012,8 @@ function getWorkoutPage() {
                                            placeholder="Ex: 60 minutos">
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label">XP por Conclusão</label>
-                                    <input type="number" class="form-control" id="workoutXP" 
-                                           value="25" min="10" max="100">
+                                    <label class="form-label">Pontos por Conclusao</label>
+                                    <input type="number" class="form-control" id="workoutXP" value="${WORKOUT_POINTS}" readonly>
                                 </div>
                             </div>
                             <div class="mb-3">
@@ -1876,7 +2086,7 @@ function getSpeedPage() {
                                     <div class="stat-item">
                                         <div class="stat-label">Distancia</div>
                                         <div class="stat-value" id="speedDistance">0.00 km</div>
-                                        <small class="text-muted">+25 XP por km</small>
+                                        <small class="text-muted">+10 pts por km (limite diario)</small>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
@@ -2017,7 +2227,7 @@ function getSpeedPage() {
 
 // Diet Page
 function getDietPage() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
     const todayLogs = foodLogs.filter(log => log.date === today);
     const totalCalories = todayLogs.reduce((sum, log) => sum + (log.calories || 0), 0);
     const totalProtein = todayLogs.reduce((sum, log) => sum + (log.protein || 0), 0);
@@ -2389,7 +2599,7 @@ function getResultsPage() {
                             <div class="mb-3">
                                 <label class="form-label">Data *</label>
                                 <input type="date" class="form-control" id="resultDate" 
-                                       value="${new Date().toISOString().split('T')[0]}" required>
+                                       value="${getLocalDateString()}" required>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Peso (kg) *</label>
@@ -2439,6 +2649,9 @@ function getProfilePage() {
     }
     
     const hunter = hunterLevels[currentUser.id];
+    const profilePoints = hunter?.points || 0;
+    const profileRankInfo = getRankFromPoints(profilePoints);
+    const profileRankLabel = hunter ? `${profileRankInfo.rankLetter}${profileRankInfo.subLevel}` : 'E1';
     const unlockedAchievements = achievements.filter(a => a.unlocked).length;
     
     return `
@@ -2471,7 +2684,7 @@ function getProfilePage() {
                                                     <i class="fas fa-bullseye me-1"></i>${currentUser.goal}
                                                 </span>
                                                 <span class="badge bg-warning">
-                                                    <i class="fas fa-trophy me-1"></i>Nível ${hunter?.level || 1}
+                                                    <i class="fas fa-trophy me-1"></i>Rank ${profileRankLabel}
                                                 </span>
                                             </div>
                                         </div>
@@ -2491,6 +2704,38 @@ function getProfilePage() {
             <!-- Profile Info -->
             <div class="row">
                 <div class="col-lg-6 mb-4">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-palette me-2"></i>Personalizacao do Cacador</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <h6 class="mb-2">Cor tematica</h6>
+                                <div class="theme-picker">
+                                    ${['purple','blue','green','red'].map(color => `
+                                        <button class="theme-chip ${currentUser.profileThemeColor === color ? 'active' : ''} theme-${color}" onclick="selectHunterTheme('${color}')" type="button">
+                                            ${color === 'purple' ? 'Roxo' : color === 'blue' ? 'Azul' : color === 'green' ? 'Verde' : 'Vermelho'}
+                                        </button>
+                                    `).join('')}
+                                </div>
+                            </div>
+                            <div>
+                                <h6 class="mb-2">Classe Fit</h6>
+                                <div class="class-grid">
+                                    ${HUNTER_CLASSES.map(hunterClass => `
+                                        <button class="class-card ${currentUser.hunterClass === hunterClass.id ? 'active' : ''}" onclick="selectHunterClass('${hunterClass.id}')" type="button">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <strong>${hunterClass.name}</strong>
+                                                <span class="badge bg-secondary">+${hunterClass.rewardPoints} pts</span>
+                                            </div>
+                                            <small class="text-muted d-block">${hunterClass.description}</small>
+                                            <small class="text-neon-blue d-block">${hunterClass.bonus}</small>
+                                        </button>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="card h-100">
                         <div class="card-header">
                             <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Informações do Caçador</h5>
@@ -2524,15 +2769,15 @@ function getProfilePage() {
                                 ${hunter ? `
                                     <div class="list-group-item bg-transparent border-0 d-flex justify-content-between py-3">
                                         <span class="text-muted">Rank</span>
-                                        <span class="hunter-rank">${hunter.rank}</span>
+                                        <span class="hunter-rank">${profileRankLabel}</span>
                                     </div>
                                     <div class="list-group-item bg-transparent border-0 d-flex justify-content-between py-3">
-                                        <span class="text-muted">Nível</span>
-                                        <span class="badge bg-warning">${hunter.level}</span>
+                                        <span class="text-muted">Pontos atuais</span>
+                                        <span class="badge bg-warning">${profilePoints}</span>
                                     </div>
                                     <div class="list-group-item bg-transparent border-0 d-flex justify-content-between py-3">
-                                        <span class="text-muted">XP Total</span>
-                                        <span class="fw-bold text-neon-blue">${hunter.totalXP}</span>
+                                        <span class="text-muted">Pontos totais</span>
+                                        <span class="fw-bold text-neon-blue">${hunter.totalPoints || profilePoints}</span>
                                     </div>
                                     <div class="list-group-item bg-transparent border-0 d-flex justify-content-between py-3">
                                         <span class="text-muted">Conquistas</span>
@@ -2687,6 +2932,204 @@ function getProfilePage() {
     `;
 }
 
+
+
+function getLocalDateString(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function addDaysToDateString(dateStr, days) {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    date.setDate(date.getDate() + days);
+    return getLocalDateString(date);
+}
+
+function compareDateStrings(a, b) {
+    if (!a || !b) return 0;
+    if (a === b) return 0;
+    return a < b ? -1 : 1;
+}
+
+function getRankFromPoints(points) {
+    const normalized = Math.max(0, Math.floor(points || 0));
+    const rankLetters = ['E', 'D', 'C', 'B', 'A', 'S'];
+    const rankSize = 2500;
+    const subLevelSize = 500;
+    const rankIndex = Math.min(rankLetters.length - 1, Math.floor(normalized / rankSize));
+    const rankStart = rankIndex * rankSize;
+    const pointsInRank = normalized - rankStart;
+    const subLevel = Math.min(5, Math.floor(pointsInRank / subLevelSize) + 1);
+    const subLevelStart = rankStart + (subLevel - 1) * subLevelSize;
+    const progressInSubLevel = normalized - subLevelStart;
+    const isMaxRank = rankIndex === rankLetters.length - 1 && subLevel === 5;
+    const nextThreshold = isMaxRank ? null : subLevelStart + subLevelSize;
+    return {
+        rankLetter: rankLetters[rankIndex],
+        subLevel,
+        progressInSubLevel,
+        nextThreshold
+    };
+}
+
+function migrateStorageIfNeeded() {
+    const currentVersion = localStorage.getItem(STORAGE_VERSION_KEY);
+    if (currentVersion === STORAGE_VERSION) return;
+
+    const savedUsers = localStorage.getItem('fitTrackUsers');
+    if (savedUsers) {
+        const parsedUsers = JSON.parse(savedUsers);
+        Object.values(parsedUsers).forEach(user => {
+            if (!user.profileThemeColor) user.profileThemeColor = 'blue';
+            if (!user.hunterClass) user.hunterClass = 'corredor-fantasma';
+            if (!user.classRewardsClaimed) user.classRewardsClaimed = [];
+        });
+        localStorage.setItem('fitTrackUsers', JSON.stringify(parsedUsers));
+    }
+
+    const savedLevels = localStorage.getItem('fitTrackHunterLevels');
+    if (savedLevels) {
+        const parsedLevels = JSON.parse(savedLevels);
+        Object.values(parsedLevels).forEach(hunter => {
+            if (!Number.isFinite(hunter.points)) hunter.points = Number.isFinite(hunter.xp) ? hunter.xp : 0;
+            if (!Number.isFinite(hunter.totalPoints)) hunter.totalPoints = Number.isFinite(hunter.totalXP) ? hunter.totalXP : hunter.points;
+            if (!hunter.rank) {
+                const rankInfo = getRankFromPoints(hunter.points);
+                hunter.rank = `${rankInfo.rankLetter}${rankInfo.subLevel}`;
+            }
+            if (typeof hunter.currentStreak !== 'number') hunter.currentStreak = 0;
+            if (hunter.lastActiveDate === undefined) hunter.lastActiveDate = null;
+            if (!hunter.lastCheckedDate) hunter.lastCheckedDate = getLocalDateString();
+            if (!hunter.dailyPenaltyAppliedDate) hunter.dailyPenaltyAppliedDate = null;
+        });
+        localStorage.setItem('fitTrackHunterLevels', JSON.stringify(parsedLevels));
+    }
+
+    localStorage.setItem(STORAGE_VERSION_KEY, STORAGE_VERSION);
+}
+
+function saveActivityFeed() {
+    ensureCurrentUser();
+    const userId = currentUser?.id || 1;
+    localStorage.setItem(`fitTrackActivityFeed_${userId}`, JSON.stringify(activityFeed));
+}
+
+function addActivityItem(item) {
+    if (!item) return;
+    const payload = {
+        id: item.id || `activity-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        type: item.type || 'generic',
+        description: item.description || '',
+        deltaPoints: Number.isFinite(item.deltaPoints) ? item.deltaPoints : 0,
+        metaInfo: item.metaInfo || null,
+        dateTimeISO: item.dateTimeISO || new Date().toISOString()
+    };
+    activityFeed.unshift(payload);
+    activityFeed = activityFeed.slice(0, ACTIVITY_FEED_LIMIT);
+    saveActivityFeed();
+}
+
+function reconcileDailyState() {
+    if (!currentUser) return;
+    initializeHunterLevels();
+
+    const today = getLocalDateString();
+    const hunter = hunterLevels[currentUser.id];
+    const lastChecked = hunter.lastCheckedDate || today;
+    const needsReset = !dailyQuests.length || dailyQuests.some(quest => quest.dateAssigned !== today);
+
+    if (lastChecked === today && !needsReset) return;
+
+    const yesterday = addDaysToDateString(today, -1);
+    const lastAssigned = dailyQuests.length ? dailyQuests[0].dateAssigned : null;
+    const hasPendingLastAssigned = dailyQuests.some(quest => !quest.completed);
+
+    if (lastAssigned && lastAssigned !== today && hasPendingLastAssigned && hunter.dailyPenaltyAppliedDate !== today) {
+        addXP(-10, 'Punicao diaria: missao nao concluida', {
+            type: 'penalty',
+            dateTimeISO: new Date().toISOString()
+        });
+        hunter.dailyPenaltyAppliedDate = today;
+    }
+
+    if (hunter.lastActiveDate !== yesterday) {
+        hunter.currentStreak = 0;
+    }
+
+    if (needsReset) {
+        dailyQuests = getDefaultDailyQuests(today);
+        saveDailyQuests();
+    }
+
+    hunter.lastCheckedDate = today;
+    saveHunterLevels();
+}
+
+function registerDailyActivity(dateStr = getLocalDateString()) {
+    if (!currentUser) return;
+    const hunter = hunterLevels[currentUser.id];
+    if (!hunter) return;
+    if (hunter.lastActiveDate === dateStr) return;
+
+    const yesterday = addDaysToDateString(dateStr, -1);
+    if (hunter.lastActiveDate === yesterday) {
+        hunter.currentStreak += 1;
+    } else {
+        hunter.currentStreak = 1;
+    }
+    hunter.lastActiveDate = dateStr;
+    saveHunterLevels();
+}
+
+
+function isDateInStreak(dateStr, hunter) {
+    if (!hunter || !hunter.lastActiveDate || !hunter.currentStreak) return false;
+    const start = addDaysToDateString(hunter.lastActiveDate, -(hunter.currentStreak - 1));
+    return dateStr >= start && dateStr <= hunter.lastActiveDate;
+}
+function applyHunterTheme() {
+    if (!currentUser) return;
+    const theme = currentUser.profileThemeColor || 'blue';
+    document.body.classList.remove('theme-blue', 'theme-purple', 'theme-red', 'theme-green');
+    document.body.classList.add(`theme-${theme}`);
+}
+
+function getHunterClassById(classId) {
+    return HUNTER_CLASSES.find(hunterClass => hunterClass.id === classId);
+}
+
+window.selectHunterTheme = function(theme) {
+    if (!currentUser) return;
+    currentUser.profileThemeColor = theme;
+    users[currentUser.id] = currentUser;
+    saveData();
+    applyHunterTheme();
+    loadPage('profile');
+    showToast('Tema atualizado!', 'success');
+};
+
+window.selectHunterClass = function(classId) {
+    if (!currentUser) return;
+    const selected = getHunterClassById(classId);
+    if (!selected) return;
+
+    currentUser.hunterClass = classId;
+    if (!Array.isArray(currentUser.classRewardsClaimed)) {
+        currentUser.classRewardsClaimed = [];
+    }
+    if (!currentUser.classRewardsClaimed.includes(classId)) {
+        currentUser.classRewardsClaimed.push(classId);
+        addXP(selected.rewardPoints, `Classe escolhida: ${selected.name}`, { type: 'class' });
+    }
+
+    users[currentUser.id] = currentUser;
+    saveData();
+    loadPage('profile');
+    showToast('Classe atualizada!', 'success');
+};
 // Helper Functions
 function getBMICategory(bmi) {
     if (bmi < 18.5) return 'Abaixo do peso';
@@ -2709,12 +3152,42 @@ function getBMIBadgeClass(bmi) {
     return 'bg-danger';
 }
 
+
+function parsePtBrDate(dateStr) {
+    if (!dateStr) return new Date(0);
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+        const [day, month, year] = parts;
+        return new Date(Number(year), Number(month) - 1, Number(day));
+    }
+    return new Date(dateStr);
+}
+
+function getLongestConsecutiveStreak(dateStrings) {
+    if (!dateStrings || !dateStrings.length) return 0;
+    const sorted = dateStrings.slice().sort();
+    let longest = 1;
+    let current = 1;
+    for (let i = 1; i < sorted.length; i += 1) {
+        const expected = addDaysToDateString(sorted[i - 1], 1);
+        if (sorted[i] == expected) {
+            current += 1;
+            if (current > longest) longest = current;
+        } else {
+            current = 1;
+        }
+    }
+    return longest;
+}
 function ensureCurrentUser() {
     if (currentUser) return;
 
     const firstUserId = Object.keys(users || {})[0];
     if (firstUserId && users[firstUserId]) {
         currentUser = users[firstUserId];
+        if (!currentUser.profileThemeColor) currentUser.profileThemeColor = 'blue';
+        if (!currentUser.hunterClass) currentUser.hunterClass = 'corredor-fantasma';
+        if (!Array.isArray(currentUser.classRewardsClaimed)) currentUser.classRewardsClaimed = [];
         localStorage.setItem('fitTrackCurrentUser', JSON.stringify(currentUser));
     }
 }
@@ -2747,7 +3220,11 @@ function normalizeExerciseIds() {
         safeWorkout.day = safeWorkout.day || 'Seg';
         safeWorkout.duration = safeWorkout.duration || '60 min';
         safeWorkout.completed = Boolean(safeWorkout.completed);
-        safeWorkout.xp = Number.isFinite(safeWorkout.xp) ? safeWorkout.xp : 25;
+        safeWorkout.pointsAwarded = Boolean(safeWorkout.pointsAwarded);
+        if (safeWorkout.completed && !safeWorkout.completedAt) {
+            safeWorkout.completedAt = safeWorkout.created || getLocalDateString();
+        }
+        safeWorkout.xp = Number.isFinite(safeWorkout.xp) ? safeWorkout.xp : WORKOUT_POINTS;
 
         if (!Array.isArray(safeWorkout.exercises)) {
             safeWorkout.exercises = [];
@@ -2879,7 +3356,6 @@ function resetSpeedTracking() {
     stopSpeedTracking();
     speedTracking.path = [];
     speedTracking.totalDistance = 0;
-    speedTracking.lastXpKm = 0;
     speedTracking.startTime = null;
     setSpeedStatus('Parado', 'bg-secondary');
 
@@ -2928,15 +3404,6 @@ function handleSpeedPosition(position) {
 
     if (speedTracking.currentMarker) {
         speedTracking.currentMarker.setLatLng(point);
-    }
-
-    const newKm = Math.floor(speedTracking.totalDistance);
-    if (newKm > speedTracking.lastXpKm) {
-        for (let km = speedTracking.lastXpKm + 1; km <= newKm; km += 1) {
-            addXP(25, `Percorreu ${km} km`);
-            showToast(`+25 XP por ${km} km`, 'success');
-        }
-        speedTracking.lastXpKm = newKm;
     }
 
     updateSpeedStats();
@@ -3177,24 +3644,41 @@ function calcSpeedKmh(distanceKm, timeSeconds) {
     return distanceKm / (timeSeconds / 3600);
 }
 
+function normalizeRun(run) {
+    if (!run) return null;
+    const dateISO = run.dateTimeISO || run.dateISO || run.date;
+    if (!dateISO) return null;
+    const dateObj = new Date(dateISO);
+    return {
+        id: run.id || `run-${Date.now()}`,
+        dateTimeISO: dateObj.toISOString(),
+        dateKey: run.dateKey || getLocalDateString(dateObj),
+        distanceKm: Number(run.distanceKm),
+        timeSeconds: Number(run.timeSeconds),
+        avgPaceSecPerKm: Number(run.avgPaceSecPerKm),
+        avgSpeedKmh: Number(run.avgSpeedKmh),
+        notes: run.notes || '',
+        pointsEarned: Number(run.pointsEarned) || 0
+    };
+}
 function loadRunsFromStorage() {
     try {
-        const raw = localStorage.getItem(RUNS_STORAGE_KEY);
-        if (!raw) {
+        const saved = localStorage.getItem(RUNS_STORAGE_KEY);
+        if (!saved) {
             speedRuns = [];
             speedRunsLoaded = true;
             return;
         }
 
-        const parsed = JSON.parse(raw);
+        const parsed = JSON.parse(saved);
+        let runs = [];
         if (Array.isArray(parsed)) {
-            speedRuns = parsed;
-            saveRunsToStorage();
+            runs = parsed;
         } else if (parsed && parsed.version === RUNS_STORAGE_VERSION && Array.isArray(parsed.runs)) {
-            speedRuns = parsed.runs;
-        } else {
-            speedRuns = [];
+            runs = parsed.runs;
         }
+
+        speedRuns = runs.map(normalizeRun).filter(run => run && run.dateTimeISO && run.distanceKm > 0 && run.timeSeconds > 0);
     } catch (error) {
         console.error('Erro ao carregar corridas:', error);
         speedRuns = [];
@@ -3298,6 +3782,11 @@ function renderRunsList() {
     `).join('');
 }
 
+function getRunPointsForDate(dateKey) {
+    return speedRuns
+        .filter(run => run.dateKey === dateKey)
+        .reduce((sum, run) => sum + (run.pointsEarned || 0), 0);
+}
 function handleRunFormSubmit(event) {
     event.preventDefault();
 
@@ -3330,19 +3819,46 @@ function handleRunFormSubmit(event) {
         return;
     }
 
+    const dateObj = new Date(dateValue);
+    const dateKey = getLocalDateString(dateObj);
+    const runBasePoints = Math.round(distanceValue * RUN_POINTS_PER_KM);
+    const alreadyEarned = getRunPointsForDate(dateKey);
+    const availablePoints = Math.max(RUN_POINTS_DAILY_CAP - alreadyEarned, 0);
+    const pointsEarned = Math.min(runBasePoints, availablePoints);
+
     const run = {
         id: `run-${Date.now()}`,
-        dateTimeISO: new Date(dateValue).toISOString(),
+        dateTimeISO: dateObj.toISOString(),
+        dateKey: dateKey,
         distanceKm: distanceValue,
         timeSeconds: timeSeconds,
         avgPaceSecPerKm: pace,
         avgSpeedKmh: Number(speed.toFixed(2)),
-        notes: notesInput?.value.trim() || ''
+        notes: notesInput?.value.trim() || '',
+        pointsEarned: pointsEarned
     };
 
     speedRuns.unshift(run);
     saveRunsToStorage();
     renderRunsList();
+
+    const description = `Corrida registrada: ${distanceValue.toFixed(1)}km em ${formatSecondsToTime(timeSeconds)} (ritmo ${formatSecondsToTime(pace)})`;
+    addActivityItem({
+        type: 'run',
+        description,
+        deltaPoints: pointsEarned,
+        dateTimeISO: run.dateTimeISO,
+        metaInfo: {
+            distanceKm: distanceValue,
+            pace: pace
+        }
+    });
+
+    if (pointsEarned > 0) {
+        addXP(pointsEarned, description, { type: 'run', dateTimeISO: run.dateTimeISO, suppressActivity: true });
+    }
+    checkAchievements();
+
     showToast('Corrida salva com sucesso!', 'success');
 
     if (distanceInput) distanceInput.value = '';
@@ -3397,19 +3913,12 @@ function importRunsJson(file) {
                 throw new Error('Formato invalido');
             }
 
-            const normalized = runs.map(run => ({
-                id: run.id || `run-${Date.now()}`,
-                dateTimeISO: run.dateTimeISO,
-                distanceKm: Number(run.distanceKm),
-                timeSeconds: Number(run.timeSeconds),
-                avgPaceSecPerKm: Number(run.avgPaceSecPerKm),
-                avgSpeedKmh: Number(run.avgSpeedKmh),
-                notes: run.notes || ''
-            })).filter(run => run.dateTimeISO && run.distanceKm > 0 && run.timeSeconds > 0);
+            const normalized = runs.map(normalizeRun).filter(run => run && run.dateTimeISO && run.distanceKm > 0 && run.timeSeconds > 0);
 
             speedRuns = normalized;
             saveRunsToStorage();
             renderRunsList();
+            checkAchievements();
             showToast('Corridas importadas com sucesso!', 'success');
         } catch (error) {
             console.error('Import error:', error);
@@ -3429,6 +3938,7 @@ window.deleteRun = function(runId) {
     speedRuns = speedRuns.filter(run => run.id !== runId);
     saveRunsToStorage();
     renderRunsList();
+    checkAchievements();
     showToast('Corrida removida', 'warning');
 };
 
@@ -3614,7 +4124,7 @@ function exportData() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `hunters-gym-backup-${currentUser.name}-${new Date().toISOString().split('T')[0]}.json`;
+        a.download = `hunters-gym-backup-${currentUser.name}-${getLocalDateString()}.json`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -3676,7 +4186,7 @@ function saveWorkout() {
     const name = document.getElementById('workoutName').value.trim();
     const day = document.getElementById('workoutDay').value;
     const duration = document.getElementById('workoutDuration').value.trim();
-    const xp = parseInt(document.getElementById('workoutXP').value) || 25;
+    const xp = WORKOUT_POINTS;
     
     if (!name) {
         showToast('Por favor, digite um nome para a missão', 'warning');
@@ -3714,6 +4224,7 @@ function saveWorkout() {
         exercises: exercises,
         completed: false,
         xp: xp,
+        pointsAwarded: false,
         created: new Date().toISOString()
     };
     
@@ -3731,6 +4242,8 @@ function saveWorkout() {
     const workoutForm = document.getElementById('workoutForm');
     if (workoutForm) {
         workoutForm.reset();
+        const xpInput = document.getElementById("workoutXP");
+        if (xpInput) xpInput.value = WORKOUT_POINTS;
     }
     
     if (exercisesContainer) {
@@ -3765,27 +4278,32 @@ function saveResult() {
     const waist = parseFloat(document.getElementById('resultWaist').value) || 0;
     const chest = parseFloat(document.getElementById('resultChest').value) || 0;
     const hips = parseFloat(document.getElementById('resultHips').value) || 0;
-    
+
     if (!date) {
         showToast('Por favor, selecione uma data', 'warning');
         return;
     }
-    
+
     if (!weight || weight <= 0) {
-        showToast('Por favor, digite um peso válido', 'warning');
+        showToast('Por favor, digite um peso valido', 'warning');
         return;
     }
-    
+
     if (weight > 300) {
-        showToast('Peso inválido. Digite um valor realista.', 'warning');
+        showToast('Peso invalido. Digite um valor realista.', 'warning');
         return;
     }
-    
+
     const bmi = calculateBMI(weight, currentUser.height);
-    
+    const dateObj = new Date(date);
+    const dateISO = dateObj.toISOString();
+    const dateKey = getLocalDateString(dateObj);
+
     const result = {
         id: Date.now(),
-        date: new Date(date).toLocaleDateString('pt-BR'),
+        date: dateObj.toLocaleDateString('pt-BR'),
+        dateISO: dateISO,
+        dateKey: dateKey,
         weight: parseFloat(weight.toFixed(1)),
         biceps: parseFloat(biceps.toFixed(1)),
         waist: parseFloat(waist.toFixed(1)),
@@ -3793,11 +4311,18 @@ function saveResult() {
         hips: parseFloat(hips.toFixed(1)),
         bmi: parseFloat(bmi)
     };
-    
+
+    const previousResult = results.length ? results[results.length - 1] : null;
+    const delta = previousResult ? (result.weight - previousResult.weight) : 0;
+    const deltaLabel = previousResult ? ` (${delta < 0 ? '?' : '?'}${Math.abs(delta).toFixed(1)}kg)` : '';
+
     results.push(result);
-    addXP(15, "Registrou medição");
+    addXP(WEIGHT_LOG_POINTS, `Peso registrado: ${result.weight}kg${deltaLabel}`, {
+        type: 'weight',
+        dateTimeISO: dateISO
+    });
     saveData();
-    
+
     const modalElement = document.getElementById('resultModal');
     if (modalElement) {
         const modal = bootstrap.Modal.getInstance(modalElement);
@@ -3805,15 +4330,16 @@ function saveResult() {
             modal.hide();
         }
     }
-    
+
     const resultForm = document.getElementById('resultForm');
     if (resultForm) {
         resultForm.reset();
-        document.getElementById('resultDate').value = new Date().toISOString().split('T')[0];
+        document.getElementById('resultDate').value = getLocalDateString();
     }
-    
+
     renderResultsList();
-    showToast('Medição registrada com sucesso! +15 XP', 'success');
+    initWeightChart();
+    showToast('Medicao registrada com sucesso!', 'success');
 }
 
 // Calculate BMI
@@ -3830,29 +4356,73 @@ function initWeightChart() {
         container.innerHTML = `
             <div class="empty-chart-state">
                 <i class="fas fa-chart-bar"></i>
-                <p>Adicione mais medições para ver o gráfico</p>
+                <p>Adicione mais medicoes para ver o grafico</p>
             </div>
         `;
         return;
     }
 
-    const recentResults = results.slice(-6);
-    const barCount = recentResults.length;
+    const parsed = results.map(result => {
+        const dateKey = result.dateKey || (result.date ? getLocalDateString(parsePtBrDate(result.date)) : getLocalDateString());
+        const dateObj = result.dateISO ? new Date(result.dateISO) : new Date(`${dateKey}T00:00:00`);
+        return {
+            dateKey,
+            dateObj,
+            weight: Number(result.weight)
+        };
+    }).filter(item => Number.isFinite(item.weight));
+
+    parsed.sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
+
+    const useWeekly = parsed.length > 10;
+    let chartData = [];
+
+    if (useWeekly) {
+        const weekly = {};
+        parsed.forEach(entry => {
+            const date = entry.dateObj;
+            const day = date.getDay();
+            const diff = (day === 0 ? -6 : 1) - day;
+            const weekStart = new Date(date);
+            weekStart.setDate(date.getDate() + diff);
+            const weekKey = getLocalDateString(weekStart);
+            if (!weekly[weekKey]) {
+                weekly[weekKey] = { total: 0, count: 0, dateObj: weekStart };
+            }
+            weekly[weekKey].total += entry.weight;
+            weekly[weekKey].count += 1;
+        });
+        chartData = Object.entries(weekly).map(([weekKey, value]) => {
+            const avgWeight = value.total / value.count;
+            return {
+                label: `Sem ${new Date(`${weekKey}T00:00:00`).toLocaleDateString('pt-BR')}`,
+                weight: Number(avgWeight.toFixed(1))
+            };
+        }).sort((a, b) => new Date(a.label.slice(4).split('/').reverse().join('-')) - new Date(b.label.slice(4).split('/').reverse().join('-')));
+    } else {
+        chartData = parsed.map(entry => ({
+            label: entry.dateObj.toLocaleDateString('pt-BR'),
+            weight: entry.weight
+        }));
+    }
+
     const chartHeight = 200;
     const barSpacing = 10;
     const availableWidth = 400;
+    const barCount = chartData.length;
     const barWidth = Math.min(40, (availableWidth - (barSpacing * (barCount - 1))) / barCount);
 
-    const weights = recentResults.map(r => Number(r.weight));
+    const weights = chartData.map(item => item.weight);
     const maxWeight = Math.max(...weights);
     const minWeight = Math.min(...weights);
     const weightRange = Math.max(maxWeight - minWeight, 2);
-    const baseWeight = recentResults[0].weight;
+    const baseWeight = chartData[0].weight;
 
     let html = `
         <div class="bar-chart-container">
             <div class="chart-header">
-                <h6>Evolução de Peso</h6>
+                <h6>Evolucao de Peso ${useWeekly ? '(semanal)' : ''}</h6>
+                <small class="text-muted">Base: ${baseWeight.toFixed(1)}kg</small>
             </div>
             <div class="bar-chart">
                 <div class="chart-body">
@@ -3860,400 +4430,154 @@ function initWeightChart() {
     `;
 
     const yStep = weightRange / 4;
-    for (let i = 4; i >= 0; i--) {
-        const value = (minWeight + (yStep * i)).toFixed(1);
-        html += `<div class="y-label">${value}kg</div>`;
-    }
-
-    html += `
-                    </div>
-                    <div class="bars-container">
-                        <div class="grid-lines">
-    `;
-
-    for (let i = 0; i <= 4; i++) {
+    for (let i = 0; i <= 4; i += 1) {
+        const value = (maxWeight - (yStep * i)).toFixed(1);
         const top = (i * chartHeight) / 4;
-        html += `<div class="grid-line" style="top:${top}px"></div>`;
+        html += `
+            <div class="y-axis-label" style="top:${top}px">${value}</div>
+        `;
     }
 
     html += `
-                        </div>
-                        <div class="bars">
+                    </div>
+                    <div class="bars">
     `;
 
-    const positiveColor = '#4cd137';
-    const negativeColor = '#e84118';
-
-    recentResults.forEach((result, index) => {
-        const currentWeight = Number(result.weight);
-        const diffFromStart = currentWeight - baseWeight;
-        const barHeight = ((currentWeight - minWeight) / weightRange) * chartHeight;
+    chartData.forEach((item, index) => {
+        const barHeight = ((item.weight - minWeight) / weightRange) * chartHeight;
         const barLeft = index * (barWidth + barSpacing);
-        
-        let barColor;
-        let diffText = '';
-        
-        if (index === 0) {
-            barColor = '#00a8ff';
-            diffText = 'Início';
-        } else {
-            barColor = diffFromStart >= 0 ? negativeColor : positiveColor;
-            diffText = diffFromStart >= 0 ? 
-                `+${diffFromStart.toFixed(1)}kg` : 
-                `${diffFromStart.toFixed(1)}kg`;
-        }
-
+        const delta = (item.weight - baseWeight).toFixed(1);
         html += `
-            <div class="bar-group" style="left:${barLeft}px; width:${barWidth}px">
-                <div class="bar-wrapper">
-                    <div class="bar-base-line"></div>
-                    <div class="bar" 
-                         style="height:${barHeight}px; 
-                                background: linear-gradient(to top, ${barColor}, ${barColor}80);"
-                         data-weight="${result.weight}kg" 
-                         data-date="${result.date}"
-                         data-diff="${diffText}">
-                    </div>
-                </div>
-                <div class="bar-label">
-                    <div class="weight-value">${result.weight}kg</div>
-                    ${index > 0 ? `<div class="diff-value ${diffFromStart >= 0 ? 'positive' : 'negative'}">${diffText}</div>` : ''}
-                </div>
-                <div class="bar-date">${result.date.split('/')[0] || ''}</div>
+            <div class="weight-bar" style="height:${barHeight}px; left:${barLeft}px; width:${barWidth}px" 
+                 data-weight="${item.weight}kg" data-date="${item.label}" data-delta="${delta}kg">
+                <div class="bar-fill"></div>
+                <div class="weight-value">${item.weight}kg</div>
             </div>
         `;
     });
 
     html += `
-                        </div>
                     </div>
+                    <div class="baseline" style="top:${((baseWeight - minWeight) / weightRange) * chartHeight}px"></div>
                 </div>
             </div>
             <div class="chart-info">
-                <div class="legend">
-                    <span class="legend-item"><span class="legend-color" style="background: #00a8ff"></span> Ponto inicial</span>
-                    <span class="legend-item"><span class="legend-color" style="background: #4cd137"></span> Perda (-)</span>
-                    <span class="legend-item"><span class="legend-color" style="background: #e84118"></span> Ganho (+)</span>
-                </div>
-                <small class="text-muted">Comparação com a primeira medição: ${baseWeight}kg</small>
+                <span>Menor: ${minWeight.toFixed(1)}kg</span>
+                <span>Maior: ${maxWeight.toFixed(1)}kg</span>
+                <span>Varia??o: ${(maxWeight - minWeight).toFixed(1)}kg</span>
             </div>
         </div>
     `;
 
     container.innerHTML = html;
-    
-    setTimeout(() => {
-        document.querySelectorAll('.bar').forEach(bar => {
-            bar.addEventListener('mouseenter', function() {
-                this.style.transform = 'scaleY(1.05)';
-                this.style.boxShadow = '0 0 15px rgba(76, 209, 55, 0.5)';
-                
-                const tooltip = document.createElement('div');
-                tooltip.className = 'bar-tooltip';
-                const weight = this.dataset.weight;
-                const date = this.dataset.date;
-                const diff = this.dataset.diff;
-                
-                tooltip.innerHTML = `
-                    <div><strong>${weight}</strong></div>
-                    <div>${date}</div>
-                    ${diff ? `<div class="diff-tooltip">${diff}</div>` : ''}
-                `;
-                
-                tooltip.style.position = 'absolute';
-                tooltip.style.bottom = '100%';
-                tooltip.style.left = '50%';
-                tooltip.style.transform = 'translateX(-50%)';
-                tooltip.style.background = 'rgba(0, 0, 0, 0.9)';
-                tooltip.style.color = 'white';
-                tooltip.style.padding = '10px 15px';
-                tooltip.style.borderRadius = '8px';
-                tooltip.style.fontSize = '12px';
-                tooltip.style.zIndex = '100';
-                tooltip.style.minWidth = '140px';
-                tooltip.style.textAlign = 'center';
-                tooltip.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.4)';
-                
-                this.appendChild(tooltip);
-            });
-            
-            bar.addEventListener('mouseleave', function() {
-                this.style.transform = 'scaleY(1)';
-                this.style.boxShadow = 'none';
-                const tooltip = this.querySelector('.bar-tooltip');
-                if (tooltip) tooltip.remove();
-            });
-        });
-    }, 100);
-    
+
     const styleId = 'bar-chart-styles';
     if (!document.getElementById(styleId)) {
         const style = document.createElement('style');
         style.id = styleId;
         style.textContent = `
             .bar-chart-container {
-                position: relative;
-                padding: 15px;
-                background: rgba(255, 255, 255, 0.03);
-                border-radius: 12px;
-                border: 1px solid rgba(255, 255, 255, 0.1);
+                padding: 16px;
             }
-            
             .chart-header {
-                text-align: center;
-                margin-bottom: 15px;
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
             }
-            
             .chart-header h6 {
-                color: var(--text-primary);
-                font-weight: 600;
                 margin: 0;
-                font-size: 1.1rem;
+                font-weight: 600;
             }
-            
             .bar-chart {
-                width: 100%;
                 overflow-x: auto;
-                padding: 10px 0;
+                padding-bottom: 10px;
+                margin-top: 16px;
             }
-            
             .bar-chart::-webkit-scrollbar {
                 height: 6px;
             }
-            
             .bar-chart::-webkit-scrollbar-track {
                 background: rgba(255, 255, 255, 0.05);
-                border-radius: 3px;
+                border-radius: 8px;
             }
-            
             .bar-chart::-webkit-scrollbar-thumb {
-                background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
-                border-radius: 3px;
+                background: rgba(255, 255, 255, 0.15);
+                border-radius: 8px;
             }
-            
             .chart-body {
-                display: flex;
+                position: relative;
                 height: ${chartHeight}px;
-                min-width: 500px;
+                min-width: 100%;
+                padding-left: 40px;
             }
-            
             .y-axis {
-                width: 50px;
+                position: absolute;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                width: 40px;
+            }
+            .y-axis-label {
+                position: absolute;
+                left: 0;
+                font-size: 0.75rem;
+                color: rgba(255, 255, 255, 0.6);
+                transform: translateY(-50%);
+            }
+            .bars {
+                position: absolute;
+                left: 40px;
+                bottom: 0;
+                right: 0;
+                height: ${chartHeight}px;
+            }
+            .weight-bar {
+                position: absolute;
+                bottom: 0;
                 display: flex;
                 flex-direction: column;
-                justify-content: space-between;
-                padding-right: 15px;
-                border-right: 1px solid rgba(255, 255, 255, 0.2);
-                flex-shrink: 0;
+                align-items: center;
+                cursor: pointer;
             }
-            
-            .y-label {
-                color: var(--text-muted);
-                font-size: 11px;
-                text-align: right;
-                line-height: 20px;
+            .bar-fill {
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(180deg, var(--theme-primary) 0%, rgba(255, 255, 255, 0.2) 100%);
+                border-radius: 12px 12px 6px 6px;
+                box-shadow: 0 0 12px var(--theme-glow);
             }
-            
-            .bars-container {
-                flex: 1;
-                position: relative;
-                margin-left: 10px;
+            .weight-value {
+                margin-top: 6px;
+                font-size: 0.75rem;
+                font-weight: 600;
             }
-            
-            .grid-lines {
+            .baseline {
                 position: absolute;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-            }
-            
-            .grid-line {
-                position: absolute;
-                left: 0;
+                left: 40px;
                 right: 0;
                 height: 1px;
-                background: rgba(255, 255, 255, 0.1);
+                background: rgba(255, 255, 255, 0.15);
             }
-            
-            .bars {
-                position: relative;
-                height: 100%;
-                display: flex;
-                align-items: flex-end;
-                padding-bottom: 25px;
-            }
-            
-            .bar-group {
-                position: absolute;
-                bottom: 0;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                transition: all 0.3s ease;
-            }
-            
-            .bar-wrapper {
-                position: relative;
-                width: 100%;
-                height: ${chartHeight}px;
-                display: flex;
-                align-items: flex-end;
-            }
-            
-            .bar-base-line {
-                position: absolute;
-                top: ${((baseWeight - minWeight) / weightRange) * chartHeight}px;
-                left: -5px;
-                right: -5px;
-                height: 2px;
-                background: rgba(255, 255, 255, 0.3);
-                border-radius: 1px;
-                z-index: 1;
-            }
-            
-            .bar {
-                width: 100%;
-                border-radius: 6px 6px 0 0;
-                transition: all 0.3s ease;
-                cursor: pointer;
-                position: relative;
-                z-index: 2;
-                min-height: 3px;
-            }
-            
-            .bar:hover {
-                opacity: 0.9;
-                filter: brightness(1.1);
-            }
-            
-            .bar-label {
-                margin-top: 8px;
-                font-size: 11px;
-                text-align: center;
-                white-space: nowrap;
-                width: 100%;
-            }
-            
-            .weight-value {
-                font-weight: 600;
-                color: var(--text-primary);
-                margin-bottom: 2px;
-            }
-            
-            .diff-value {
-                font-size: 10px;
-                padding: 2px 6px;
-                border-radius: 10px;
-                margin-top: 2px;
-                font-weight: 600;
-            }
-            
-            .diff-value.positive {
-                color: #4cd137;
-                background: rgba(76, 209, 55, 0.15);
-            }
-            
-            .diff-value.negative {
-                color: #e84118;
-                background: rgba(232, 65, 24, 0.15);
-            }
-            
-            .bar-date {
-                margin-top: 5px;
-                font-size: 10px;
-                color: var(--text-muted);
-                text-align: center;
-                white-space: nowrap;
-            }
-            
             .chart-info {
-                margin-top: 20px;
-                padding-top: 15px;
-                border-top: 1px solid rgba(255, 255, 255, 0.1);
                 display: flex;
-                flex-direction: column;
-                gap: 10px;
-                align-items: center;
+                gap: 12px;
+                justify-content: space-between;
+                font-size: 0.75rem;
+                color: rgba(255, 255, 255, 0.6);
+                margin-top: 10px;
             }
-            
-            .legend {
-                display: flex;
-                gap: 15px;
-                flex-wrap: wrap;
-                justify-content: center;
-            }
-            
-            .legend-item {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                font-size: 12px;
-                color: var(--text-secondary);
-            }
-            
-            .legend-color {
-                width: 12px;
-                height: 12px;
-                border-radius: 3px;
-                display: inline-block;
-            }
-            
-            .diff-tooltip {
-                margin-top: 4px;
-                padding: 2px 8px;
-                background: rgba(255, 255, 255, 0.1);
-                border-radius: 4px;
-                font-weight: 600;
-            }
-            
-            .bar-tooltip::after {
-                content: '';
-                position: absolute;
-                top: 100%;
-                left: 50%;
-                transform: translateX(-50%);
-                border-width: 5px;
-                border-style: solid;
-                border-color: rgba(0, 0, 0, 0.9) transparent transparent transparent;
-            }
-            
             .empty-chart-state {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                height: 200px;
-                color: var(--text-muted);
+                text-align: center;
+                padding: 24px;
             }
-            
             .empty-chart-state i {
-                font-size: 3rem;
-                margin-bottom: 15px;
-                opacity: 0.5;
+                font-size: 2rem;
+                margin-bottom: 8px;
+                opacity: 0.4;
             }
-            
             @media (max-width: 768px) {
                 .chart-body {
-                    min-width: 400px;
-                }
-                
-                .bar-group {
-                    min-width: 35px;
-                }
-                
-                .bar-label {
-                    font-size: 10px;
-                }
-                
-                .bar-date {
-                    font-size: 9px;
-                }
-                
-                .legend {
-                    flex-direction: column;
-                    gap: 8px;
-                    align-items: flex-start;
+                    height: 180px;
                 }
             }
         `;
@@ -4339,7 +4663,7 @@ function renderWorkoutList() {
                                                     ${workout.completed ? 'Concluído' : 'Pendente'}
                                                 </span>
                                                 <span class="badge bg-info ms-2">
-                                                    ${workout.xp} XP
+                                                    ${workout.xp} pts
                                                 </span>
                                             </div>
                                             <small class="text-muted d-block">
@@ -4533,11 +4857,19 @@ window.toggleWorkout = function(workoutId) {
     if (workout) {
         workout.completed = !workout.completed;
         if (workout.completed) {
-            addXP(workout.xp || 25, `Completou ${workout.name}`);
+            workout.completedAt = new Date().toISOString();
+            if (!workout.pointsAwarded) {
+                addXP(WORKOUT_POINTS, `Treino concluido: ${workout.name}`, {
+                    type: 'workout',
+                    dateTimeISO: workout.completedAt
+                });
+                workout.pointsAwarded = true;
+            }
         }
         saveData();
         renderWorkoutList();
-        showToast(`Missão ${workout.completed ? 'concluída' : 'marcada como pendente'}!`, 'success');
+        checkAchievements();
+        showToast(`Missao ${workout.completed ? 'concluida' : 'marcada como pendente'}!`, 'success');
     }
 };
 
@@ -4547,50 +4879,57 @@ window.toggleExercise = function(workoutId, exerciseId) {
         console.error('Workout not found:', workoutId);
         return;
     }
+
     if (!Array.isArray(workout.exercises)) {
         workout.exercises = [];
     }
 
     const exercise = workout.exercises.find(e => e.id == exerciseId);
     if (!exercise) {
-        console.error('Exercise not found:', exerciseId);
         console.log('Available exercises:', workout.exercises.map(e => ({ id: e.id, name: e.name })));
         return;
     }
-    
+
     exercise.completed = !exercise.completed;
-    
+
     const allExercisesCompleted = workout.exercises.every(e => e.completed);
     if (allExercisesCompleted && !workout.completed) {
         workout.completed = true;
-        addXP(workout.xp || 25, `Completou ${workout.name}`);
-        showToast('🎉 Todos os exercícios concluídos! Missão marcada como completa.', 'success');
+        workout.completedAt = new Date().toISOString();
+        if (!workout.pointsAwarded) {
+            addXP(WORKOUT_POINTS, `Treino concluido: ${workout.name}`, {
+                type: 'workout',
+                dateTimeISO: workout.completedAt
+            });
+            workout.pointsAwarded = true;
+        }
     } else if (!allExercisesCompleted && workout.completed) {
         workout.completed = false;
-        showToast('Missão marcada como pendente pois há exercícios incompletos.', 'warning');
     }
-    
+
     saveData();
     renderWorkoutList();
-    
-    showToast(`"${exercise.name}" ${exercise.completed ? 'concluído' : 'pendente'}!`, 'info');
+    checkAchievements();
 };
 
 window.deleteWorkout = function(workoutId) {
-    if (confirm('Tem certeza que deseja excluir esta missão de treino?')) {
+    if (confirm('Tem certeza que deseja excluir esta missao de treino?')) {
         workouts = workouts.filter(w => w.id !== workoutId);
         saveData();
         renderWorkoutList();
-        showToast('Missão excluída com sucesso!', 'success');
+        checkAchievements();
+        showToast('Missao de treino excluida com sucesso!', 'success');
     }
 };
 
 window.deleteResult = function(resultId) {
-    if (confirm('Tem certeza que deseja excluir esta medição?')) {
+    if (confirm('Tem certeza que deseja excluir esta medicao?')) {
         results = results.filter(r => r.id !== resultId);
         saveData();
         renderResultsList();
-        showToast('Medição excluída com sucesso!', 'success');
+        initWeightChart();
+        checkAchievements();
+        showToast('Medicao excluida com sucesso!', 'success');
     }
 };
 
@@ -4605,7 +4944,7 @@ window.addWorkoutForDay = function(day) {
 
 // Toggle Food Consumption
 window.toggleFoodConsumption = function(foodId, foodName, calories, protein, carbs, fat, meal) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
     const existingLog = foodLogs.find(log => 
         log.date === today && log.foodId === foodId
     );
@@ -4630,11 +4969,11 @@ window.toggleFoodConsumption = function(foodId, foodName, calories, protein, car
         };
         
         foodLogs.push(foodLog);
-        addXP(5, `Consumiu ${foodName}`);
-        showToast(`${foodName} registrado! +5 XP`, 'success');
+        showToast(`${foodName} registrado!`, 'success');
     }
     
     saveDietData();
+    checkAchievements();
     loadPage('diet');
 };
 
@@ -4642,6 +4981,7 @@ window.toggleFoodConsumption = function(foodId, foodName, calories, protein, car
 window.removeFoodLog = function(logId) {
     foodLogs = foodLogs.filter(log => log.id !== logId);
     saveDietData();
+    checkAchievements();
     loadPage('diet');
     showToast('Registro de alimento removido', 'warning');
 };
@@ -4664,7 +5004,7 @@ function saveFoodLog() {
     
     const foodLog = {
         id: Date.now(),
-        date: new Date().toISOString().split('T')[0],
+        date: getLocalDateString(),
         foodId: Date.now(),
         foodName: name,
         quantity: quantity,
@@ -4678,8 +5018,8 @@ function saveFoodLog() {
     };
     
     foodLogs.push(foodLog);
-    addXP(10, `Registrou ${name}`);
     saveDietData();
+    checkAchievements();
     
     const modalElement = document.getElementById('foodModal');
     if (modalElement) {
@@ -4695,7 +5035,7 @@ function saveFoodLog() {
     }
     
     loadPage('diet');
-    showToast(`${name} registrado com sucesso! +10 XP`, 'success');
+    showToast(`${name} registrado com sucesso!`, 'success');
 }
 
 // Load Diet Management
@@ -4873,38 +5213,44 @@ window.deleteDiet = function(dietId) {
 window.completeQuest = function(questId) {
     const quest = dailyQuests.find(q => q.id === questId);
     if (!quest || quest.completed) return;
-    
+
+    const today = getLocalDateString();
     quest.completed = true;
-    addXP(quest.xp, `Missão: ${quest.name}`);
+    quest.completedAt = new Date().toISOString();
+    addXP(quest.rewardPoints || DAILY_QUEST_POINTS, `Missao diaria: ${quest.name}`, {
+        type: 'daily_quest',
+        dateTimeISO: new Date().toISOString()
+    });
+    registerDailyActivity(today);
     saveDailyQuests();
     loadPage('home');
-    showToast(`Missão "${quest.name}" completada! +${quest.xp} XP`, 'success');
+    showToast(`Missao "${quest.name}" completada! +${quest.rewardPoints || DAILY_QUEST_POINTS} pontos`, 'success');
 };
 
 // Complete Daily Challenge
 window.completeDailyChallenge = function() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
     const todayLogs = foodLogs.filter(log => log.date === today);
     const completedWorkouts = workouts.filter(w => w.completed).length;
-    
-    let xpEarned = 0;
+
+    let pointsEarned = 0;
     let challenges = [];
-    
+
     if (todayLogs.length >= 3) {
-        xpEarned += 20;
-        challenges.push('Registrou 3+ refeições');
+        pointsEarned += 20;
+        challenges.push('Registrou 3+ refeicoes');
     }
-    
+
     if (completedWorkouts > 0) {
-        xpEarned += 25;
+        pointsEarned += 25;
         challenges.push('Completou 1+ treino');
     }
-    
-    if (xpEarned > 0) {
-        addXP(xpEarned, `Desafio Diário: ${challenges.join(', ')}`);
-        showToast(`Desafio diário completado! +${xpEarned} XP`, 'success');
+
+    if (pointsEarned > 0) {
+        addXP(pointsEarned, `Desafio Diario: ${challenges.join(', ')}`);
+        showToast(`Desafio diario completado! +${pointsEarned} pontos`, 'success');
     } else {
-        showToast('Complete algumas atividades para ganhar XP no desafio diário', 'info');
+        showToast('Complete algumas atividades para ganhar pontos no desafio diario', 'info');
     }
 };
 
@@ -4945,8 +5291,9 @@ window.showAllAchievements = function() {
                                                 <h6 class="mb-1">${achievement.name}</h6>
                                                 <p class="text-muted small mb-1">${achievement.description}</p>
                                                 <div class="d-flex justify-content-between align-items-center">
+                                                    <small class="text-muted">Progresso: ${achievement.progressCurrent}/${achievement.goal}</small>
                                                     <small class="text-neon-yellow">
-                                                        <i class="fas fa-coins me-1"></i>${achievement.xp} XP
+                                                        <i class="fas fa-coins me-1"></i>${achievement.rewardPoints} pts
                                                     </small>
                                                     <small class="${achievement.unlocked ? 'text-success' : 'text-muted'}">
                                                         ${achievement.unlocked ? '<i class="fas fa-check me-1"></i>Desbloqueada' : 'Bloqueada'}
@@ -4981,8 +5328,18 @@ window.showAllAchievements = function() {
 window.showAchievementDetails = function(achievementId) {
     const achievement = achievements.find(a => a.id === achievementId);
     if (!achievement) return;
-    
-    alert(`${achievement.icon} ${achievement.name}\n\n${achievement.description}\n\nRecompensa: ${achievement.xp} XP\n\nStatus: ${achievement.unlocked ? '✅ Desbloqueada' : '🔒 Bloqueada'}`);
+
+    const progress = `${achievement.progressCurrent}/${achievement.goal}`;
+    const reward = achievement.rewardPoints ? `${achievement.rewardPoints} pts` : 'Sem recompensa';
+    const status = achievement.unlockedAt ? 'Desbloqueada' : 'Bloqueada';
+
+    alert(`${achievement.icon} ${achievement.name}
+
+${achievement.description}
+
+Progresso: ${progress}
+Recompensa: ${reward}
+Status: ${status}`);
 };
 
 // Save to Phone
@@ -5023,7 +5380,8 @@ function showToast(message, type = 'info') {
         <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
             <div class="toast-header ${bgClass} text-white">
                 <strong class="me-auto">
-                    ${type === 'success' ? '✅ Sucesso' : 
+                    ${type === 'success' ? '�
+ Sucesso' : 
                       type === 'error' ? '❌ Erro' : 
                       type === 'warning' ? '⚠️ Aviso' : 'ℹ️ Informação'}
                 </strong>
