@@ -4063,7 +4063,6 @@ function handleRunFormSubmit(event) {
         addXP(pointsEarned, description, { type: 'run', dateTimeISO: run.dateTimeISO, suppressActivity: true });
     }
     triggerAchievementsCheck();
-\r
     showToast('Corrida salva com sucesso!', 'success');
 
     if (distanceInput) distanceInput.value = '';
@@ -5660,6 +5659,7 @@ window.stopSpeedTracking = stopSpeedTracking;
 window.resetSpeedTracking = resetSpeedTracking;
 
 console.log('Hunter\'s Gym - Sistema completo carregado com sucesso!');
+
 
 
 
