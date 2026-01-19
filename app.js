@@ -445,6 +445,29 @@ function addXP(amount, reason, options = {}) {
 }
 
 // Show Rank Up Animation
+function awardWorkoutPoints(workout) {
+    if (!workout) return;
+    addXP(POINTS_CONFIG.workout, `Treino concluido: ${workout.name}`, {
+        type: 'workout',
+        dateTimeISO: workout.completedAt || new Date().toISOString()
+    });
+}
+
+function awardWeightPoints(result, deltaLabel, dateISO) {
+    if (!result) return;
+    addXP(POINTS_CONFIG.weightLog, `Peso registrado: ${result.weight}kg${deltaLabel}`, {
+        type: 'weight',
+        dateTimeISO: dateISO
+    });
+}
+
+function awardDailyQuestPoints(quest) {
+    if (!quest) return;
+    addXP(quest.rewardPoints || POINTS_CONFIG.dailyQuest, `Missao diaria: ${quest.name}`, {
+        type: 'daily_quest',
+        dateTimeISO: new Date().toISOString()
+    });
+}
 function showRankUpAnimation(rankLabel) {
     const animationHtml = `
         <div class="level-up-animation">
@@ -510,23 +533,19 @@ function saveData() {
     try {
         if (isInitializing) return;
         if (!currentUser) return;
-        
+
         localStorage.setItem('fitTrackUsers', JSON.stringify(users));
         localStorage.setItem('fitTrackCurrentUser', JSON.stringify(currentUser));
-                loadActivityFeed();
-                applyHunterTheme();
-                reconcileDailyState();
-                checkAchievements();
         localStorage.setItem(`fitTrackWorkouts_${currentUser.id}`, JSON.stringify(workouts));
         localStorage.setItem(`fitTrackResults_${currentUser.id}`, JSON.stringify(results));
         localStorage.setItem('fitTrackProfilePics', JSON.stringify(profilePics));
-        
+
         saveDietData();
         saveHunterLevels();
         saveAchievements();
         saveDailyQuests();
         saveActivityFeed();
-        
+
         console.log('Todos os dados salvos com sucesso!');
     } catch (error) {
         console.error('Erro ao salvar dados:', error);
@@ -545,16 +564,18 @@ function saveDietData() {
 
         localStorage.setItem(`fitTrackDiets_${userId}`, JSON.stringify(diets));
         localStorage.setItem(`fitTrackFoodLogs_${userId}`, JSON.stringify(foodLogs));
-        
+
         console.log('Dados de dieta salvos!');
-        checkAchievements();
     } catch (error) {
         console.error('Erro ao salvar dados de dieta:', error);
         showToast('Erro ao salvar dados de dieta', 'error');
     }
 }
 
-// Save Hunter Levels
+function triggerAchievementsCheck() {
+    if (isInitializing) return;
+    checkAchievements();
+}
 function saveHunterLevels() {
     localStorage.setItem('fitTrackHunterLevels', JSON.stringify(hunterLevels));
 }
@@ -567,10 +588,6 @@ function saveAchievements() {
 // Save Daily Quests
 function saveDailyQuests() {
     localStorage.setItem('fitTrackDailyQuests', JSON.stringify(dailyQuests));
-                if (data.speedRuns) {
-                    speedRuns = data.speedRuns.map(normalizeRun).filter(run => run && run.dateTimeISO);
-                    saveRunsToStorage();
-                }
 }
 
 // Get Default Workouts
@@ -4357,17 +4374,24 @@ function saveWorkout() {
     const day = document.getElementById('workoutDay').value;
     const duration = document.getElementById('workoutDuration').value.trim();
     const xp = POINTS_CONFIG.workout;
-    
-    if (!name) {
-        showToast('Por favor, digite um nome para a missão', 'warning');
-        return;
+
+    if (window.SoufitCore && window.SoufitCore.validation) {
+        const validation = window.SoufitCore.validation.validateWorkoutInput({ name, day });
+        if (!validation.valid) {
+            showToast(validation.message || 'Dados invalidos', 'warning');
+            return;
+        }
+    } else {
+        if (!name) {
+            showToast('Por favor, digite um nome para a missao', 'warning');
+            return;
+        }
+        if (!day) {
+            showToast('Por favor, selecione um dia da semana', 'warning');
+            return;
+        }
     }
-    
-    if (!day) {
-        showToast('Por favor, selecione um dia da semana', 'warning');
-        return;
-    }
-    
+
     const exercises = [];
     const exercisesContainer = document.getElementById('exercisesContainer');
     const exerciseItems = exercisesContainer ? exercisesContainer.querySelectorAll('.exercise-item') : [];
@@ -4449,19 +4473,25 @@ function saveResult() {
     const chest = parseFloat(document.getElementById('resultChest').value) || 0;
     const hips = parseFloat(document.getElementById('resultHips').value) || 0;
 
-    if (!date) {
-        showToast('Por favor, selecione uma data', 'warning');
-        return;
-    }
-
-    if (!weight || weight <= 0) {
-        showToast('Por favor, digite um peso valido', 'warning');
-        return;
-    }
-
-    if (weight > 300) {
-        showToast('Peso invalido. Digite um valor realista.', 'warning');
-        return;
+    if (window.SoufitCore && window.SoufitCore.validation) {
+        const validation = window.SoufitCore.validation.validateWeightInput({ date, weight });
+        if (!validation.valid) {
+            showToast(validation.message || 'Dados invalidos', 'warning');
+            return;
+        }
+    } else {
+        if (!date) {
+            showToast('Por favor, selecione uma data', 'warning');
+            return;
+        }
+        if (!weight || weight <= 0) {
+            showToast('Por favor, digite um peso valido', 'warning');
+            return;
+        }
+        if (weight > 300) {
+            showToast('Peso invalido. Digite um valor realista.', 'warning');
+            return;
+        }
     }
 
     const bmi = calculateBMI(weight, currentUser.height);
@@ -4487,10 +4517,7 @@ function saveResult() {
     const deltaLabel = previousResult ? ` (${delta < 0 ? '?' : '?'}${Math.abs(delta).toFixed(1)}kg)` : '';
 
     results.push(result);
-    addXP(POINTS_CONFIG.weightLog, `Peso registrado: ${result.weight}kg${deltaLabel}`, {
-        type: 'weight',
-        dateTimeISO: dateISO
-    });
+    awardWeightPoints(result, deltaLabel, dateISO);
     saveData();
 
     const modalElement = document.getElementById('resultModal');
@@ -5055,10 +5082,7 @@ window.toggleWorkout = function(workoutId) {
         if (workout.completed) {
             workout.completedAt = new Date().toISOString();
             if (!workout.pointsAwarded) {
-                addXP(POINTS_CONFIG.workout, `Treino concluido: ${workout.name}`, {
-                    type: 'workout',
-                    dateTimeISO: workout.completedAt
-                });
+                awardWorkoutPoints(workout);
                 workout.pointsAwarded = true;
             }
         }
@@ -5192,12 +5216,20 @@ function saveFoodLog() {
     const protein = parseInt(document.getElementById('foodProtein').value) || 0;
     const carbs = parseInt(document.getElementById('foodCarbs').value) || 0;
     const fat = parseInt(document.getElementById('foodFat').value) || 0;
-    
-    if (!name || !quantity) {
-        showToast('Por favor, preencha o nome e quantidade do alimento', 'warning');
-        return;
+
+    if (window.SoufitCore && window.SoufitCore.validation) {
+        const validation = window.SoufitCore.validation.validateFoodLogInput({ name, quantity });
+        if (!validation.valid) {
+            showToast(validation.message || 'Dados invalidos', 'warning');
+            return;
+        }
+    } else {
+        if (!name || !quantity) {
+            showToast('Por favor, preencha o nome e quantidade do alimento', 'warning');
+            return;
+        }
     }
-    
+
     const foodLog = {
         id: Date.now(),
         date: getLocalDateString(),
@@ -5348,9 +5380,17 @@ window.createNewDiet = function() {
     const fatInput = document.getElementById('dietFatInput');
 
     const name = nameInput ? nameInput.value.trim() : '';
-    if (!name) {
-        showToast('Informe o nome da dieta', 'warning');
-        return;
+    if (window.SoufitCore && window.SoufitCore.validation) {
+        const validation = window.SoufitCore.validation.validateDietInput({ name });
+        if (!validation.valid) {
+            showToast(validation.message || 'Dados invalidos', 'warning');
+            return;
+        }
+    } else {
+        if (!name) {
+            showToast('Informe o nome da dieta', 'warning');
+            return;
+        }
     }
 
     const description = descriptionInput ? descriptionInput.value.trim() : '';
@@ -5413,10 +5453,7 @@ window.completeQuest = function(questId) {
     const today = getLocalDateString();
     quest.completed = true;
     quest.completedAt = new Date().toISOString();
-    addXP(quest.rewardPoints || POINTS_CONFIG.dailyQuest, `Missao diaria: ${quest.name}`, {
-        type: 'daily_quest',
-        dateTimeISO: new Date().toISOString()
-    });
+    awardDailyQuestPoints(quest);
     registerDailyActivity(today);
     saveDailyQuests();
     loadPage('home');
@@ -5619,6 +5656,24 @@ window.stopSpeedTracking = stopSpeedTracking;
 window.resetSpeedTracking = resetSpeedTracking;
 
 console.log('Hunter\'s Gym - Sistema completo carregado com sucesso!');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

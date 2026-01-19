@@ -1113,13 +1113,29 @@ p, span, div {
 
 /* Responsive Design - ATUALIZADO para navbar fixa */
 @media (max-width: 768px) {
+    .navbar {
+        padding: 10px 14px;
+        height: 60px;
+    }
+
+    .navbar-brand {
+        font-size: 1.2rem;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .navbar-brand-subtitle {
+        display: none;
+    }
+
     .sidebar {
+        top: 60px;
+        height: calc(100vh - 60px);
+        height: calc(100dvh - 60px);
         transform: translateX(-100%);
         transition: transform 0.3s ease;
         width: 300px;
-        top: 70px;
-        height: calc(100vh - 70px);
-        height: calc(100dvh - 70px);
         overflow: hidden;
     }
     
@@ -1130,7 +1146,7 @@ p, span, div {
     .main-content {
         margin-left: 0;
         padding: 20px;
-        margin-top: 70px;
+        margin-top: 60px;
         padding-bottom: 110px;
     }
     
