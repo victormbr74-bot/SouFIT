@@ -1,0 +1,16 @@
+{
+  "name": "soufit-tools",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "migrate:web": "ts-node -r tsconfig-paths/register --project tsconfig.json ./migration/importWebData.ts",
+    "validate:imports": "ts-node -r tsconfig-paths/register --project tsconfig.json ./validate/imports.ts",
+    "simulate:days": "ts-node -r tsconfig-paths/register --project tsconfig.json ./simulate/days.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.7.2",
+    "ts-node": "^10.9.1",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "~5.9.2"
+  }
+}
