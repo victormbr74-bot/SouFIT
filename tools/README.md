@@ -1,6 +1,6 @@
 # SouFIT Tools
 
-Scripts auxiliares que rodam via Node/`ts-node` e usam o core compartilhado.
+Scripts auxiliares que executam `ts-node` e consomem o `@soufit/core`, ajudando a validar snapshots e testar regras off-line.
 
 ## Setup
 
@@ -11,8 +11,8 @@ npm install
 
 ## Scripts disponíveis
 
-- `npm run migrate:web -- <arquivo.json>`: normaliza exports do web (runs, metadata etc.) e imprime resumo pronto para ser importado no mobile.
-- `npm run validate:imports -- <snapshot.json>`: valida chaves em um snapshot legado (usando os helpers de storage do core).
-- `npm run simulate:days -- <dias> [dataInicial]`: simula streaks, missões e penalidades para o período fornecido (padrão 7 dias começando em hoje).
+- `npm run migrate:storage -- <snapshot.json> [output.json]`: atualiza o `soufit_storage_version` para v3, adiciona metadados de migração e grava um novo snapshot preparado para o core compartilhado.
+- `npm run validate:import -- <snapshot.json>`: lista chaves reconhecidas pelo core e alerta quando houver entradas inesperadas no backup.
+- `npm run simulate:days -- <dias> [dataInicial]`: simula múltiplos dias reconciliando streak/missões e imprimindo quando penalidades semanais ou resetes ocorrerem.
 
-Os scripts são TS e aproveitam os helpers de `packages/core`. Basta rodar o comando acima e seguir as instruções no console.
+Os scripts confiam em `tsconfig-paths` para resolver o alias `@soufit/core`, portanto execute-os por dentro da pasta `tools` e passe os parâmetros depois de `--` como nos exemplos acima.

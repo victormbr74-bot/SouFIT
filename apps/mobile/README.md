@@ -31,8 +31,8 @@ Toda a lógica de regras de pontos, ranks, streak, missões e conquistas vive em
 O app mobile terá botões de importação/exportação na tela de Configurações, mas a primeira versão usa os scripts Node em `/tools`:
 
 - `cd tools && npm install` (só na primeira vez).
-- `npm run migrate:web -- ../caminho/do/exportado.json` para normalizar dados do web.
-- `npm run validate:imports -- ./snapshot.json` para checar um snapshot JSON antes de importar.
+- `npm run migrate:storage -- ../caminho/do/exportado.json [output.json]` para atualizar o snapshot legado para v3.
+- `npm run validate:import -- ./snapshot.json` para checar um snapshot JSON antes de importar.
 - `npm run simulate:days -- 7 2025-01-01` para simular streaks e missões em um período.
 
 Esses scripts usam `ts-node` e consomem o core compartilhado; você pode adaptá-los para persistir em AsyncStorage/SQLite ou gerar um dump JSON para importar dentro do app.

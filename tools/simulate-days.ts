@@ -3,9 +3,9 @@ import {
   generateDefaultDailyQuests,
   reconcileDailyQuests,
   registerDailyActivity,
-  StreakState
+  StreakState,
+  HunterLevelState
 } from '@soufit/core';
-import { HunterLevelState } from '@soufit/core';
 
 const [,, countArg, startArg] = process.argv;
 const totalDays = Math.max(1, Number(countArg) || 7);
@@ -34,12 +34,10 @@ let hunterState: HunterLevelState = {
 
 let dailyQuests = generateDefaultDailyQuests(startDate);
 
-let cursor = startDate;
-
 console.log(`Simulando ${totalDays} dias a partir de ${startDate}`);
 
 for (let day = 0; day < totalDays; day += 1) {
-  const currentDate = addDaysToDateString(cursor, day === 0 ? 0 : day);
+  const currentDate = addDaysToDateString(startDate, day);
   streakState = registerDailyActivity(streakState, currentDate);
   hunterState = {
     ...hunterState,
@@ -55,12 +53,11 @@ for (let day = 0; day < totalDays; day += 1) {
 
   hunterState = result.hunter;
   dailyQuests = result.dailyQuests;
-  streakState.currentStreak = hunterState.currentStreak;
 
   const completed = dailyQuests.filter(quest => quest.completed).length;
   console.log(
-    `[${currentDate}] Streak: ${hunterState.currentStreak} - Quests concluídas: ${completed} - Penalidade: ${
+    `[${currentDate}] Streak: ${hunterState.currentStreak} | Penalidade: ${
       result.penaltyApplied ? 'sim' : 'não'
-    }`
+    } | Missões concluídas: ${completed}`
   );
 }
