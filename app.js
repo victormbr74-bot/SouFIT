@@ -468,6 +468,24 @@ function awardDailyQuestPoints(quest) {
         dateTimeISO: new Date().toISOString()
     });
 }
+
+function postWorkoutUpdate() {
+    saveData();
+    renderWorkoutList();
+    triggerAchievementsCheck();
+}
+
+function postResultsUpdate() {
+    saveData();
+    renderResultsList();
+    initWeightChart();
+    triggerAchievementsCheck();
+}
+
+function postDietUpdate() {
+    saveDietData();
+    triggerAchievementsCheck();
+}
 function showRankUpAnimation(rankLabel) {
     const animationHtml = `
         <div class="level-up-animation">
@@ -4044,8 +4062,8 @@ function handleRunFormSubmit(event) {
     if (pointsEarned > 0) {
         addXP(pointsEarned, description, { type: 'run', dateTimeISO: run.dateTimeISO, suppressActivity: true });
     }
-    checkAchievements();
-
+    triggerAchievementsCheck();
+\r
     showToast('Corrida salva com sucesso!', 'success');
 
     if (distanceInput) distanceInput.value = '';
@@ -4105,7 +4123,7 @@ function importRunsJson(file) {
             speedRuns = normalized;
             saveRunsToStorage();
             renderRunsList();
-            checkAchievements();
+            triggerAchievementsCheck();
             showToast('Corridas importadas com sucesso!', 'success');
         } catch (error) {
             console.error('Import error:', error);
@@ -4125,13 +4143,14 @@ window.deleteRun = function(runId) {
     speedRuns = speedRuns.filter(run => run.id !== runId);
     saveRunsToStorage();
     renderRunsList();
-    checkAchievements();
+            triggerAchievementsCheck();
     showToast('Corrida removida', 'warning');
 };
 
 // Setup Results Events
 function setupResultsEvents() {
     renderResultsList();
+    initWeightChart();
     
     const addResultBtn = document.getElementById('addResultBtn');
     if (addResultBtn) {
@@ -4423,7 +4442,7 @@ function saveWorkout() {
     };
     
     workouts.push(workout);
-    saveData();
+    postWorkoutUpdate();
     
     const modalElement = document.getElementById('workoutModal');
     if (modalElement) {
@@ -4518,7 +4537,7 @@ function saveResult() {
 
     results.push(result);
     awardWeightPoints(result, deltaLabel, dateISO);
-    saveData();
+    postResultsUpdate();
 
     const modalElement = document.getElementById('resultModal');
     if (modalElement) {
@@ -5086,9 +5105,7 @@ window.toggleWorkout = function(workoutId) {
                 workout.pointsAwarded = true;
             }
         }
-        saveData();
-        renderWorkoutList();
-        checkAchievements();
+        postWorkoutUpdate();
         showToast(`Missao ${workout.completed ? 'concluida' : 'marcada como pendente'}!`, 'success');
     }
 };
@@ -5117,27 +5134,20 @@ window.toggleExercise = function(workoutId, exerciseId) {
         workout.completed = true;
         workout.completedAt = new Date().toISOString();
         if (!workout.pointsAwarded) {
-            addXP(POINTS_CONFIG.workout, `Treino concluido: ${workout.name}`, {
-                type: 'workout',
-                dateTimeISO: workout.completedAt
-            });
+            awardWorkoutPoints(workout);
             workout.pointsAwarded = true;
         }
     } else if (!allExercisesCompleted && workout.completed) {
         workout.completed = false;
     }
 
-    saveData();
-    renderWorkoutList();
-    checkAchievements();
+    postWorkoutUpdate();
 };
 
 window.deleteWorkout = function(workoutId) {
     if (confirm('Tem certeza que deseja excluir esta missao de treino?')) {
         workouts = workouts.filter(w => w.id !== workoutId);
-        saveData();
-        renderWorkoutList();
-        checkAchievements();
+        postWorkoutUpdate();
         showToast('Missao de treino excluida com sucesso!', 'success');
     }
 };
@@ -5145,10 +5155,7 @@ window.deleteWorkout = function(workoutId) {
 window.deleteResult = function(resultId) {
     if (confirm('Tem certeza que deseja excluir esta medicao?')) {
         results = results.filter(r => r.id !== resultId);
-        saveData();
-        renderResultsList();
-        initWeightChart();
-        checkAchievements();
+        postResultsUpdate();
         showToast('Medicao excluida com sucesso!', 'success');
     }
 };
@@ -5192,16 +5199,14 @@ window.toggleFoodConsumption = function(foodId, foodName, calories, protein, car
         showToast(`${foodName} registrado!`, 'success');
     }
     
-    saveDietData();
-    checkAchievements();
+    postDietUpdate();
     loadPage('diet');
 };
 
 // Remove Food Log
 window.removeFoodLog = function(logId) {
     foodLogs = foodLogs.filter(log => log.id !== logId);
-    saveDietData();
-    checkAchievements();
+    postDietUpdate();
     loadPage('diet');
     showToast('Registro de alimento removido', 'warning');
 };
@@ -5246,8 +5251,7 @@ function saveFoodLog() {
     };
     
     foodLogs.push(foodLog);
-    saveDietData();
-    checkAchievements();
+    postDietUpdate();
     
     const modalElement = document.getElementById('foodModal');
     if (modalElement) {
@@ -5656,6 +5660,30 @@ window.stopSpeedTracking = stopSpeedTracking;
 window.resetSpeedTracking = resetSpeedTracking;
 
 console.log('Hunter\'s Gym - Sistema completo carregado com sucesso!');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
