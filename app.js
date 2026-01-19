@@ -4577,13 +4577,21 @@ function initWeightChart() {
         return;
     }
 
+        const parseWeightValue = (raw) => {
+        if (raw === null || raw === undefined) return null;
+        const cleaned = String(raw).trim().replace(',', '.').replace(/[^0-9.-]/g, '');
+        if (!cleaned) return null;
+        const value = Number(cleaned);
+        return Number.isFinite(value) ? value : null;
+    };
+
     const parsed = results.map(result => {
         const dateKey = result.dateKey || (result.date ? getLocalDateString(parsePtBrDate(result.date)) : getLocalDateString());
         const dateObj = result.dateISO ? new Date(result.dateISO) : new Date(`${dateKey}T00:00:00`);
         return {
             dateKey,
             dateObj,
-            weight: Number(result.weight)
+            weight: parseWeightValue(result.weight)
         };
     }).filter(item => Number.isFinite(item.weight));
 
@@ -4621,17 +4629,24 @@ function initWeightChart() {
         }));
     }
 
-    const chartHeight = 200;
+    const chartHeight = 260;
     const barSpacing = 10;
     const availableWidth = 400;
     const barCount = chartData.length;
     const barWidth = Math.min(40, (availableWidth - (barSpacing * (barCount - 1))) / barCount);
+    const contentWidth = (barWidth + barSpacing) * barCount - barSpacing;
+    const chartBodyWidth = Math.max(availableWidth, contentWidth + 40);
 
     const weights = chartData.map(item => item.weight);
-    const maxWeight = Math.max(...weights);
-    const minWeight = Math.min(...weights);
-    const weightRange = Math.max(maxWeight - minWeight, 2);
+    const dataMax = Math.max(...weights);
+    const dataMin = Math.min(...weights);
+    const range = dataMax - dataMin;
+    const pad = Math.max(0.5, range * 0.15);
+    const minAxis = dataMin - pad;
+    const maxAxis = dataMax + pad;
+    const axisRange = Math.max(maxAxis - minAxis, 1);
     const baseWeight = chartData[0].weight;
+    const clampedBase = Math.min(maxAxis, Math.max(minAxis, baseWeight));
 
     let html = `
         <div class="bar-chart-container">
@@ -4640,13 +4655,13 @@ function initWeightChart() {
                 <small class="text-muted">Base: ${baseWeight.toFixed(1)}kg</small>
             </div>
             <div class="bar-chart">
-                <div class="chart-body">
+                <div class="chart-body" style="min-width:${chartBodyWidth}px">
                     <div class="y-axis">
     `;
 
-    const yStep = weightRange / 4;
+    const yStep = axisRange / 4;
     for (let i = 0; i <= 4; i += 1) {
-        const value = (maxWeight - (yStep * i)).toFixed(1);
+        const value = (maxAxis - (yStep * i)).toFixed(1);
         const top = (i * chartHeight) / 4;
         html += `
             <div class="y-axis-label" style="top:${top}px">${value}</div>
@@ -4655,31 +4670,38 @@ function initWeightChart() {
 
     html += `
                     </div>
-                    <div class="bars">
+                    <div class="bars" style="width:${contentWidth}px">
     `;
 
     chartData.forEach((item, index) => {
-        const barHeight = ((item.weight - minWeight) / weightRange) * chartHeight;
+                const minVisualPct = 6;
+        let heightPct = 60;
+        if (range > 0) {
+            const p = ((item.weight - minAxis) / axisRange) * 100;
+            const clampedPct = Math.min(100, Math.max(0, p));
+            heightPct = Math.max(clampedPct, minVisualPct);
+        }
+        const barHeight = (heightPct / 100) * chartHeight;
         const barLeft = index * (barWidth + barSpacing);
         const delta = (item.weight - baseWeight).toFixed(1);
         html += `
             <div class="weight-bar" style="height:${barHeight}px; left:${barLeft}px; width:${barWidth}px" 
-                 data-weight="${item.weight}kg" data-date="${item.label}" data-delta="${delta}kg">
+                 data-weight="${item.weight}kg" data-delta="${delta}kg">
                 <div class="bar-fill"></div>
-                <div class="weight-value">${item.weight}kg</div>
+                <div class="weight-value">${item.weight.toFixed(1)}kg</div>
             </div>
         `;
     });
 
     html += `
                     </div>
-                    <div class="baseline" style="top:${((baseWeight - minWeight) / weightRange) * chartHeight}px"></div>
+                    <div class="baseline" style="top:${((clampedBase - minAxis) / axisRange) * chartHeight}px"></div>
                 </div>
             </div>
             <div class="chart-info">
-                <span>Menor: ${minWeight.toFixed(1)}kg</span>
-                <span>Maior: ${maxWeight.toFixed(1)}kg</span>
-                <span>Varia??o: ${(maxWeight - minWeight).toFixed(1)}kg</span>
+                <span>Menor: ${dataMin.toFixed(1)}kg</span>
+                <span>Maior: ${dataMax.toFixed(1)}kg</span>
+                <span>Variacao: ${(dataMax - dataMin).toFixed(1)}kg</span>
             </div>
         </div>
     `;
@@ -4720,7 +4742,7 @@ function initWeightChart() {
                 border-radius: 8px;
             }
             .chart-body {
-                position: relative;
+                position: relative;\r\n                overflow: hidden;
                 height: ${chartHeight}px;
                 min-width: 100%;
                 padding-left: 40px;
@@ -4738,6 +4760,12 @@ function initWeightChart() {
                 font-size: 0.75rem;
                 color: rgba(255, 255, 255, 0.6);
                 transform: translateY(-50%);
+            }
+            .y-axis-label:first-child {
+                transform: translateY(0);
+            }
+            .y-axis-label:last-child {
+                transform: translateY(-100%);
             }
             .bars {
                 position: absolute;
@@ -4762,9 +4790,16 @@ function initWeightChart() {
                 box-shadow: 0 0 12px var(--theme-glow);
             }
             .weight-value {
-                margin-top: 6px;
+                position: absolute;
+                bottom: 100%;
+                transform: translateY(-6px);
                 font-size: 0.75rem;
                 font-weight: 600;
+            }
+            .weight-label {
+                margin-top: 6px;
+                font-size: 0.7rem;
+                color: rgba(255, 255, 255, 0.65);
             }
             .baseline {
                 position: absolute;
@@ -4800,7 +4835,7 @@ function initWeightChart() {
                     gap: 4px;
                 }
                 .chart-body {
-                    height: 180px;
+                    height: 220px;
                     padding-left: 34px;
                 }
                 .y-axis {
@@ -5659,6 +5694,20 @@ window.stopSpeedTracking = stopSpeedTracking;
 window.resetSpeedTracking = resetSpeedTracking;
 
 console.log('Hunter\'s Gym - Sistema completo carregado com sucesso!');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
