@@ -175,7 +175,7 @@ function initializeApp(options = {}) {
         checkAchievements();
     }
     reconcileDailyState();
-    applyHunterTheme();
+    applyTheme();
     updateUserSidebar();
     updateHunterLevelDisplay();
     isInitializing = false;
@@ -1201,7 +1201,7 @@ function switchUser(userId) {
     foodLogs = savedFoodLogs ? JSON.parse(savedFoodLogs) : [];
     loadActivityFeed();
     reconcileDailyState();
-    applyHunterTheme();
+    applyTheme();
     
     updateUserSidebar();
     updateHunterLevelDisplay();
@@ -3269,11 +3269,18 @@ function isDateInStreak(dateStr, hunter) {
     const start = addDaysToDateString(hunter.lastActiveDate, -(hunter.currentStreak - 1));
     return dateStr >= start && dateStr <= hunter.lastActiveDate;
 }
-function applyHunterTheme() {
-    if (!currentUser) return;
-    const theme = currentUser.profileThemeColor || 'blue';
+function applyTheme(themeColor) {
+    const themeName = themeColor || currentUser?.profileThemeColor || 'blue';
+    const theme = ['blue', 'purple', 'red', 'green'].includes(themeName) ? themeName : 'blue';
     document.body.classList.remove('theme-blue', 'theme-purple', 'theme-red', 'theme-green');
     document.body.classList.add(`theme-${theme}`);
+
+    if (speedTracking?.polyline) {
+        const style = getComputedStyle(document.body);
+        const color = style.getPropertyValue('--color-primary').trim();
+        const fallback = style.getPropertyValue('--palette-blue').trim();
+        speedTracking.polyline.setStyle({ color: color || fallback });
+    }
 }
 
 function getHunterClassById(classId) {
@@ -3285,7 +3292,7 @@ window.selectHunterTheme = function(theme) {
     currentUser.profileThemeColor = theme;
     users[currentUser.id] = currentUser;
     saveData();
-    applyHunterTheme();
+    applyTheme(theme);
     loadPage('profile');
     showToast('Tema atualizado!', 'success');
 };
@@ -3462,8 +3469,11 @@ function initSpeedMap() {
         attribution: '&copy; MapTiler &copy; OpenStreetMap contributors'
     }).addTo(speedTracking.map);
 
+    const style = getComputedStyle(document.body);
+    const themeColor = style.getPropertyValue('--color-primary').trim();
+    const fallbackColor = style.getPropertyValue('--palette-blue').trim();
     speedTracking.polyline = L.polyline([], {
-        color: '#00a8ff',
+        color: themeColor || fallbackColor,
         weight: 4
     }).addTo(speedTracking.map);
 }
@@ -4785,9 +4795,9 @@ function initWeightChart() {
             .bar-fill {
                 width: 100%;
                 height: 100%;
-                background: linear-gradient(180deg, var(--theme-primary) 0%, rgba(255, 255, 255, 0.2) 100%);
+                background: linear-gradient(180deg, var(--color-primary) 0%, rgba(255, 255, 255, 0.2) 100%);
                 border-radius: 12px 12px 6px 6px;
-                box-shadow: 0 0 12px var(--theme-glow);
+                box-shadow: 0 0 12px var(--color-glow);
             }
             .weight-value {
                 position: absolute;

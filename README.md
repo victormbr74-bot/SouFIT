@@ -7,6 +7,16 @@ Dashboard fitness com tema Solo Leveling. Navegacao: Dashboard, Treinos, Dieta d
   - `python -m http.server 5500`
   - Acesse `http://localhost:5500/index.html`
 
+## Tema global (Design System)
+- As variaveis do tema ficam em `style.css` no bloco `:root` e nas classes `body.theme-*`.
+- Tokens principais: `--color-primary`, `--color-bg`, `--color-card`, `--color-border`, `--color-text`, `--color-glow`, `--color-accent`, `--color-progress`.
+- O tema e aplicado pela funcao `applyTheme(themeColor)` em `app.js`, que alterna as classes `theme-*` no `body`.
+
+### Como adicionar um novo tema
+1) Em `style.css`, adicione uma nova classe `body.theme-nome` definindo os tokens `--color-*` (siga o padrao dos temas existentes).
+2) Se precisar de uma nova cor base, inclua no bloco `:root` como `--palette-nome`.
+3) Em `app.js`, inclua o novo tema no seletor de cores do perfil.
+
 ## Gamificacao
 ### Pontos
 - Missao diaria concluida: +25 pontos
