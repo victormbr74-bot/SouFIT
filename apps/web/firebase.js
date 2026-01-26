@@ -4,12 +4,12 @@ import { getFirestore, enableIndexedDbPersistence } from 'https://www.gstatic.co
 import { getStorage } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-storage.js';
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyBrAtfItj2Jg3xexI0VkYOGwY_0kZ3gXgg',
-  authDomain: 'levelfit-app.firebaseapp.com',
-  projectId: 'levelfit-app',
-  storageBucket: 'levelfit-app.appspot.com',
-  messagingSenderId: '1053515925507',
-  appId: '1:1053515925507:web:1a5b88d16415ff21a3e636'
+  apiKey: 'AIzaSyD2t6RjJS5ZcvByn81bf8Qtu6_fvnJteD4',
+  authDomain: 'fit20-a3a32.firebaseapp.com',
+  projectId: 'fit20-a3a32',
+  storageBucket: 'fit20-a3a32.appspot.com',
+  messagingSenderId: '834013704933',
+  appId: '1:834013704933:web:94c5bdd834dfba12951a0c'
 };
 
 const app = initializeApp(firebaseConfig);
