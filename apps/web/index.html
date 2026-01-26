@@ -1,130 +1,207 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sou Fit 2026 - Solo Leveling Edition</title>
-    <meta name="description" content="Dashboard fitness com tem√°tica Solo Leveling para treinos, dieta e progresso do ca√ßador.">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css">
-        <link rel="icon" href="./favicon.ico" type="image/x-icon">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SouFIT - Academia do Jogador</title>
+  <meta name="description" content="SouFIT transforma treinos e dieta num RPG moderno com onboarding guiado e sincronizaÁ„o Firebase.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="./favicon.ico" type="image/x-icon">
 </head>
-<body>
-    <!-- Navbar com tema Solo Leveling -->
-    <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
-        <div class="container-fluid">
-            <button class="navbar-toggler" type="button">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            
-            <a class="navbar-brand" href="#home" data-page="home">
-                <i class="fas fa-dungeon me-2"></i>
-                <span class="fw-bold">HUNTER'S GYM</span>
-                <small class="ms-2 text-neon-blue navbar-brand-subtitle">Solo Leveling Edition</small>
-            </a>
-        </div>
-    </nav>
+<body class="theme-light">
+  <div id="authContainer" class="auth-view"></div>
 
-    <!-- Sidebar -->
-    <div class="sidebar" id="sidebar">
-        <div class="sidebar-content">
-            <!-- Se√ß√£o de usu√°rios -->
-            <div id="userSection"></div>
-            
-            <!-- Menu principal -->
-            <ul class="nav flex-column">
-                <li class="nav-item">
-                    <a class="nav-link active" href="#home" data-page="home">
-                        <i class="fas fa-home me-3"></i>Dashboard
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="#workout" data-page="workout">
-                        <i class="fas fa-dumbbell me-3"></i>Treinos
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="#diet" data-page="diet">
-                        <i class="fas fa-utensils me-3"></i>Dieta do Ca√ßador
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="#results" data-page="results">
-                        <i class="fas fa-chart-line me-3"></i>Status
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="#speed" data-page="speed">
-                        <i class="fas fa-person-running me-3"></i>Speed
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="#profile" data-page="profile">
-                        <i class="fas fa-user me-3"></i>Perfil do Ca√ßador
-                    </a>
-                </li>
-            </ul>
-            
-            <!-- N√≠vel do Ca√ßador -->
-            <div class="mt-4 p-3 hunter-level-card">
-                <small class="text-neon-blue d-block mb-2">N√çVEL DO CA√áADOR</small>
-                <div id="hunterLevelDisplay">
-                    <!-- Carregado pelo JavaScript -->
-                </div>
+  <div id="appShell" class="app-shell hidden">
+    <aside class="app-sidebar">
+      <div class="brand">
+        <i class="fas fa-shield-alt"></i>
+        <div>
+          <strong>SouFIT</strong>
+          <small>Jogador Edition</small>
+        </div>
+      </div>
+      <div id="playerCard" class="player-card"></div>
+      <nav class="sidebar-nav" aria-label="Menu principal">
+        <button class="nav-link" data-route="home">
+          <i class="fas fa-home"></i> Dashboard
+        </button>
+        <button class="nav-link" data-route="workout">
+          <i class="fas fa-dumbbell"></i> Treinos
+        </button>
+        <button class="nav-link" data-route="diet">
+          <i class="fas fa-utensils"></i> Dieta
+        </button>
+        <button class="nav-link" data-route="results">
+          <i class="fas fa-chart-line"></i> Resultados
+        </button>
+        <button class="nav-link" data-route="speed">
+          <i class="fas fa-bolt"></i> Speed
+        </button>
+        <button class="nav-link" data-route="profile">
+          <i class="fas fa-user"></i> Perfil do Jogador
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <button id="themeToggle" class="btn btn-outline-light btn-sm w-100">
+          <i class="fas fa-adjust"></i> Alternar Tema
+        </button>
+        <button id="logoutBtn" class="btn btn-danger btn-sm w-100 mt-2">
+          <i class="fas fa-right-from-bracket"></i> Sair
+        </button>
+      </div>
+    </aside>
+
+    <div class="app-main">
+      <header class="app-header">
+        <div>
+          <p id="statusSubtitle" class="status-subtitle"></p>
+          <h1 id="pageTitle" class="page-title"></h1>
+        </div>
+        <div class="header-meta">
+          <span id="networkStatus" class="network-status">
+            <i class="fas fa-wifi"></i> Conectado
+          </span>
+          <button id="mobileNavToggle" class="btn btn-outline-light d-lg-none">
+            <i class="fas fa-bars"></i>
+          </button>
+        </div>
+      </header>
+      <main id="pageContent" class="page-content"></main>
+    </div>
+  </div>
+
+  <nav class="bottom-nav" id="bottomNav" aria-label="Menu r·pido">
+    <a class="bottom-nav-link" data-route="home">
+      <i class="fas fa-home"></i>
+      <span>Dashboard</span>
+    </a>
+    <a class="bottom-nav-link" data-route="workout">
+      <i class="fas fa-dumbbell"></i>
+      <span>Treinos</span>
+    </a>
+    <a class="bottom-nav-link" data-route="diet">
+      <i class="fas fa-utensils"></i>
+      <span>Dieta</span>
+    </a>
+    <a class="bottom-nav-link" data-route="speed">
+      <i class="fas fa-bolt"></i>
+      <span>Speed</span>
+    </a>
+    <a class="bottom-nav-link" data-route="results">
+      <i class="fas fa-chart-line"></i>
+      <span>Resultados</span>
+    </a>
+    <a class="bottom-nav-link" data-route="profile">
+      <i class="fas fa-user"></i>
+      <span>Perfil</span>
+    </a>
+  </nav>
+
+  <div id="toastContainer" class="toast-stack" aria-live="assertive"></div>
+
+  <div id="conflictModal" class="modal fade" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Conflito de SincronizaÁ„o</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <p id="conflictMessage">Dados foram alterados em outro dispositivo.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="keepLocalBtn" class="btn btn-primary">Manter dados deste dispositivo</button>
+          <button type="button" id="useServerBtn" class="btn btn-outline-secondary">Usar dados do servidor</button>
+          <button type="button" id="exportBackupBtn" class="btn btn-link">Exportar backup</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="exerciseModal" tabindex="-1" aria-labelledby="exerciseModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form id="exerciseForm">
+          <div class="modal-header">
+            <h5 class="modal-title" id="exerciseModalLabel">Editar ExercÌcio</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label">ExercÌcio</label>
+              <select class="form-select" id="exerciseSelect"></select>
             </div>
-        </div>
+            <div class="row g-3">
+              <div class="col-6">
+                <label class="form-label">SÈries</label>
+                <input type="text" id="exerciseSets" class="form-control" placeholder="Ex: 4" required>
+              </div>
+              <div class="col-6">
+                <label class="form-label">RepetiÁıes</label>
+                <input type="text" id="exerciseReps" class="form-control" placeholder="Ex: 8-10" required>
+              </div>
+            </div>
+            <div class="mb-3 mt-3">
+              <label class="form-label">Carga sugerida</label>
+              <input type="text" id="exerciseLoad" class="form-control" placeholder="Ex: 70% 1RM">
+            </div>
+            <div class="mb-0">
+              <label class="form-label">Notas</label>
+              <textarea id="exerciseNotes" class="form-control" rows="2" placeholder="Foco em tempo sob tens„o"></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Salvar</button>
+          </div>
+        </form>
+      </div>
     </div>
+  </div>
 
-    <!-- Main Content -->
-    <div class="main-content" id="mainContent">
-        <div id="pageContent"></div>
+  <div class="modal fade" id="dietItemModal" tabindex="-1" aria-labelledby="dietItemModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form id="dietItemForm">
+          <div class="modal-header">
+            <h5 class="modal-title" id="dietItemModalLabel">Adicionar item</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label">RefeiÁ„o</label>
+              <select id="dietItemMeal" class="form-select"></select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Nome do alimento</label>
+              <input type="text" id="dietItemName" class="form-control" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">PorÁıes / ObservaÁıes</label>
+              <input type="text" id="dietItemPortion" class="form-control" placeholder="2 ovos + 1 fatia de p„o">
+            </div>
+            <div class="mb-0">
+              <label class="form-label">Notas</label>
+              <textarea id="dietItemNotes" class="form-control" rows="2" placeholder="Foco em proteÌna"></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Salvar</button>
+          </div>
+        </form>
+      </div>
     </div>
+  </div>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <nav class="bottom-nav" id="bottomNav">
-        <a class="bottom-nav-link nav-link" href="#home" data-page="home" aria-label="Dashboard">
-            <i class="fas fa-home"></i>
-            <span>Dashboard</span>
-        </a>
-        <a class="bottom-nav-link nav-link" href="#workout" data-page="workout" aria-label="Treinos">
-            <i class="fas fa-dumbbell"></i>
-            <span>Treinos</span>
-        </a>
-        <a class="bottom-nav-link nav-link" href="#diet" data-page="diet" aria-label="Dieta">
-            <i class="fas fa-utensils"></i>
-            <span>Dieta</span>
-        </a>
-        <a class="bottom-nav-link nav-link" href="#speed" data-page="speed" aria-label="Speed">
-            <i class="fas fa-person-running"></i>
-            <span>Speed</span>
-        </a>
-        <a class="bottom-nav-link nav-link" href="#results" data-page="results" aria-label="Status">
-            <i class="fas fa-chart-line"></i>
-            <span>Status</span>
-        </a>
-        <a class="bottom-nav-link nav-link" href="#profile" data-page="profile" aria-label="Perfil">
-            <i class="fas fa-user"></i>
-            <span>Perfil</span>
-        </a>
-    </nav>
-    <button class="mobile-more-btn" id="mobileMoreBtn" type="button" aria-label="Mais opcoes">
-        <i class="fas fa-ellipsis-h"></i>
-    </button>
-    <!-- App JS -->
-    <script src="src/core/dates.js"></script>
-    <script src="src/core/ranks.js"></script>
-    <script src="src/core/streak.js"></script>
-    <script src="src/core/missions.js"></script>
-    <script src="src/core/points.js"></script>
-    <script src="src/core/metrics.js"></script>
-    <script src="src/core/storage.js"></script>
-    <script src="src/core/activityFeed.js"></script>
-    <script src="src/core/achievements.js"></script>
-    <script src="src/core/runs.js"></script>
-    <script src="src/core/validation.js"></script>
-    <script src="app.js"></script>
+  <input type="file" id="dietPdfInput" accept="application/pdf" class="d-none">
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
