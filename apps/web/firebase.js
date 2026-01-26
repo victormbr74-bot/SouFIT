@@ -4,29 +4,29 @@ import { getFirestore, enableIndexedDbPersistence } from 'https://www.gstatic.co
 import { getStorage } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-storage.js';
 
 const firebaseConfig = {
-  apiKey: 'YOUR_API_KEY',
-  authDomain: 'YOUR_PROJECT.firebaseapp.com',
-  projectId: 'YOUR_PROJECT',
-  storageBucket: 'YOUR_PROJECT.appspot.com',
-  messagingSenderId: 'YOUR_SENDER_ID',
-  appId: 'YOUR_APP_ID'
+  apiKey: 'AIzaSyBrAtfItj2Jg3xexI0VkYOGwY_0kZ3gXgg',
+  authDomain: 'levelfit-app.firebaseapp.com',
+  projectId: 'levelfit-app',
+  storageBucket: 'levelfit-app.appspot.com',
+  messagingSenderId: '1053515925507',
+  appId: '1:1053515925507:web:1a5b88d16415ff21a3e636'
 };
 
 const app = initializeApp(firebaseConfig);
 
 const auth = getAuth(app);
 setPersistence(auth, browserLocalPersistence).catch(() => {
-  console.warn('Não foi possível manter a persistência local do Firebase Auth.');
+  console.warn('NÃ£o foi possÃ­vel manter a persistÃªncia local do Firebase Auth.');
 });
 
 const db = getFirestore(app);
 enableIndexedDbPersistence(db).catch((error) => {
   if (error?.code === 'failed-precondition') {
-    console.warn('Múltiplas abas abertas. Offline persistence só funciona em uma aba por vez.');
+    console.warn('MÃºltiplas abas abertas. Offline persistence sÃ³ funciona em uma aba por vez.');
   } else if (error?.code === 'unimplemented') {
-    console.warn('Offline persistence não é suportada neste navegador.');
+    console.warn('Offline persistence nÃ£o Ã© suportada neste navegador.');
   } else {
-    console.warn('Erro ao habilitar persistência do Firestore:', error);
+    console.warn('Erro ao habilitar persistÃªncia do Firestore:', error);
   }
 });
 
