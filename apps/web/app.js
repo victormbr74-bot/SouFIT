@@ -13,7 +13,7 @@ import { ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/fireba
 const MAIN_ROUTES = ['home', 'workout', 'diet', 'results', 'speed', 'profile'];
 const AUTH_ROUTES = ['auth-login', 'auth-signup', 'auth-onboarding'];
 const ALL_ROUTES = [...MAIN_ROUTES, ...AUTH_ROUTES];
-const DAY_LABELS = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+const DAY_LABELS = ['Segunda', 'TerÃ§a', 'Quarta', 'Quinta', 'Sexta', 'SÃ¡bado', 'Domingo'];
 const STORAGE_KEYS = {
   profile: 'soufit_profile_cache',
   plan: 'soufit_plan_cache',
@@ -21,22 +21,22 @@ const STORAGE_KEYS = {
   settings: 'soufit_settings_cache',
   meta: 'soufit_meta_cache'
 };
-const muscleGroupsList = ['Peito', 'Costas', 'Pernas', 'Ombros', 'Braços', 'Core'];
+const muscleGroupsList = ['Peito', 'Costas', 'Pernas', 'Ombros', 'BraÃ§os', 'Core'];
 const trainingLevels = ['iniciante', 'intermediario', 'avancado'];
 const goalOptions = {
-  deficit: 'Déficit Calórico',
+  deficit: 'DÃ©ficit CalÃ³rico',
   massa: 'Hipertrofia Controlada',
-  manter: 'Manutenção Equilibrada'
+  manter: 'ManutenÃ§Ã£o Equilibrada'
 };
-const mealNames = ['Café da manhã', 'Almoço', 'Jantar', 'Lanches'];
+const mealNames = ['CafÃ© da manhÃ£', 'AlmoÃ§o', 'Jantar', 'Lanches'];
 const planSplits = {
   1: ['Full Body'],
   2: ['Full Body', 'Full Body'],
-  3: ['Peito & Costas', 'Pernas & Core', 'Ombros & Braços'],
+  3: ['Peito & Costas', 'Pernas & Core', 'Ombros & BraÃ§os'],
   4: ['Superior', 'Inferior', 'Push', 'Pull'],
   5: ['Push', 'Pull', 'Pernas', 'Core', 'Full Body'],
   6: ['Push', 'Pull', 'Pernas', 'Core', 'Push', 'Pull'],
-  7: ['Peito', 'Costas', 'Pernas', 'Ombros', 'Braços', 'Core', 'Full Body']
+  7: ['Peito', 'Costas', 'Pernas', 'Ombros', 'BraÃ§os', 'Core', 'Full Body']
 };
 const levelOrder = { iniciante: 0, intermediario: 1, avancado: 2 };
 const exerciseLibrary = [
@@ -49,18 +49,18 @@ const exerciseLibrary = [
     defaultSets: '4x8',
     defaultReps: '8-10',
     load: '70% 1RM',
-    notes: 'Desça até paralelo mantendo o core neutro.'
+    notes: 'DesÃ§a atÃ© paralelo mantendo o core neutro.'
   },
   {
     id: 'leg-press',
     name: 'Leg Press',
     group: 'Pernas',
     level: 'iniciante',
-    equipment: 'Máquina',
+    equipment: 'MÃ¡quina',
     defaultSets: '3x12',
     defaultReps: '12',
     load: 'Carga controlada',
-    notes: 'Passe o tempo em controle na fase excêntrica.'
+    notes: 'Passe o tempo em controle na fase excÃªntrica.'
   },
   {
     id: 'supino-reto',
@@ -71,7 +71,7 @@ const exerciseLibrary = [
     defaultSets: '4x8',
     defaultReps: '8-10',
     load: '72% 1RM',
-    notes: 'Mantenha escápula retraída.'
+    notes: 'Mantenha escÃ¡pula retraÃ­da.'
   },
   {
     id: 'supino-inclinado',
@@ -93,7 +93,7 @@ const exerciseLibrary = [
     defaultSets: '4x8',
     defaultReps: '8-10',
     load: 'Moderado',
-    notes: 'Puxe o cotovelo para trás e contraia as escápulas.'
+    notes: 'Puxe o cotovelo para trÃ¡s e contraia as escÃ¡pulas.'
   },
   {
     id: 'puxada-frontal',
@@ -104,7 +104,7 @@ const exerciseLibrary = [
     defaultSets: '3x12',
     defaultReps: '12',
     load: 'Controle total',
-    notes: 'Pescoço longo e tronco levemente inclinado.'
+    notes: 'PescoÃ§o longo e tronco levemente inclinado.'
   },
   {
     id: 'desenvolvimento-ombros',
@@ -115,40 +115,40 @@ const exerciseLibrary = [
     defaultSets: '3x10',
     defaultReps: '10',
     load: 'Leve a moderado',
-    notes: 'Evite esticar demais o trapézio.'
+    notes: 'Evite esticar demais o trapÃ©zio.'
   },
   {
     id: 'elevacao-lateral',
-    name: 'Elevação Lateral',
+    name: 'ElevaÃ§Ã£o Lateral',
     group: 'Ombros',
     level: 'iniciante',
     equipment: 'Halteres',
     defaultSets: '3x15',
     defaultReps: '15',
     load: 'Leve',
-    notes: 'Suba até o nível dos ombros com controle.'
+    notes: 'Suba atÃ© o nÃ­vel dos ombros com controle.'
   },
   {
     id: 'rosca-biceps',
     name: 'Rosca Direta',
-    group: 'Braços',
+    group: 'BraÃ§os',
     level: 'iniciante',
     equipment: 'Barra',
     defaultSets: '3x12',
     defaultReps: '12',
-    load: 'Técnica perfeita',
-    notes: 'Não balance o corpo para puxar o peso.'
+    load: 'TÃ©cnica perfeita',
+    notes: 'NÃ£o balance o corpo para puxar o peso.'
   },
   {
     id: 'triceps-corda',
-    name: 'Tríceps na Corda',
-    group: 'Braços',
+    name: 'TrÃ­ceps na Corda',
+    group: 'BraÃ§os',
     level: 'iniciante',
     equipment: 'Polia',
     defaultSets: '3x15',
     defaultReps: '15',
     load: 'Moderado',
-    notes: 'Faça o pico de contração em cada repetição.'
+    notes: 'FaÃ§a o pico de contraÃ§Ã£o em cada repetiÃ§Ã£o.'
   },
   {
     id: 'prancha',
@@ -170,66 +170,66 @@ const exerciseLibrary = [
     defaultSets: '3x20',
     defaultReps: '20',
     load: 'Peso corporal',
-    notes: 'Foco em rotacionar o tronco e ativar oblíquos.'
+    notes: 'Foco em rotacionar o tronco e ativar oblÃ­quos.'
   }
 ];
 const dietLibrary = {
   deficit: {
-    'Café da manhã': [
-      { name: 'Ovos mexidos com espinafre', portion: '2 ovos + 1 xícara', notes: 'Proteína magra e fibras' },
-      { name: 'Chá verde', portion: '1 xícara', notes: 'Termogênico leve' }
+    'CafÃ© da manhÃ£': [
+      { name: 'Ovos mexidos com espinafre', portion: '2 ovos + 1 xÃ­cara', notes: 'ProteÃ­na magra e fibras' },
+      { name: 'ChÃ¡ verde', portion: '1 xÃ­cara', notes: 'TermogÃªnico leve' }
     ],
-    'Almoço': [
-      { name: 'Peito de frango grelhado', portion: '180g', notes: 'Proteína e baixo sódio' },
+    'AlmoÃ§o': [
+      { name: 'Peito de frango grelhado', portion: '180g', notes: 'ProteÃ­na e baixo sÃ³dio' },
       { name: 'Arroz integral', portion: '5 colheres de sopa', notes: 'Carboidrato complexo' },
-      { name: 'Salada colorida', portion: 'à vontade', notes: 'Fibras e micronutrientes' }
+      { name: 'Salada colorida', portion: 'Ã  vontade', notes: 'Fibras e micronutrientes' }
     ],
     'Jantar': [
-      { name: 'Salmão assado', portion: '160g', notes: 'Ômega-3 e proteína' },
-      { name: 'Batata-doce', portion: '150g', notes: 'Carboidrato de baixo índice glicêmico' }
+      { name: 'SalmÃ£o assado', portion: '160g', notes: 'Ã”mega-3 e proteÃ­na' },
+      { name: 'Batata-doce', portion: '150g', notes: 'Carboidrato de baixo Ã­ndice glicÃªmico' }
     ],
     'Lanches': [
-      { name: 'Iogurte grego integral', portion: '1 pote', notes: 'Probióticos e proteína' },
-      { name: 'Mix de nozes', portion: '30g', notes: 'Gordura saudável e saciedade' }
+      { name: 'Iogurte grego integral', portion: '1 pote', notes: 'ProbiÃ³ticos e proteÃ­na' },
+      { name: 'Mix de nozes', portion: '30g', notes: 'Gordura saudÃ¡vel e saciedade' }
     ]
   },
   massa: {
-    'Café da manhã': [
-      { name: 'Panqueca de aveia com banana', portion: '2 unidades', notes: 'Carboidrato e proteína' },
-      { name: 'Omelete 3 ovos', portion: '3 ovos', notes: 'Proteína total' }
+    'CafÃ© da manhÃ£': [
+      { name: 'Panqueca de aveia com banana', portion: '2 unidades', notes: 'Carboidrato e proteÃ­na' },
+      { name: 'Omelete 3 ovos', portion: '3 ovos', notes: 'ProteÃ­na total' }
     ],
-    'Almoço': [
-      { name: 'Arroz integral', portion: '6 colheres', notes: 'Base energética' },
-      { name: 'Feijão', portion: '4 colheres', notes: 'Proteína vegetal' },
-      { name: 'Bife de patinho', portion: '200g', notes: 'Proteína magra' },
-      { name: 'Legumes no vapor', portion: 'à vontade', notes: 'Fibras' }
+    'AlmoÃ§o': [
+      { name: 'Arroz integral', portion: '6 colheres', notes: 'Base energÃ©tica' },
+      { name: 'FeijÃ£o', portion: '4 colheres', notes: 'ProteÃ­na vegetal' },
+      { name: 'Bife de patinho', portion: '200g', notes: 'ProteÃ­na magra' },
+      { name: 'Legumes no vapor', portion: 'Ã  vontade', notes: 'Fibras' }
     ],
     'Jantar': [
-      { name: 'Massa integral com molho leve', portion: '1 prato raso', notes: 'Carboidrato para recuperação' },
-      { name: 'Frango desfiado', portion: '160g', notes: 'Proteína adicional' }
+      { name: 'Massa integral com molho leve', portion: '1 prato raso', notes: 'Carboidrato para recuperaÃ§Ã£o' },
+      { name: 'Frango desfiado', portion: '160g', notes: 'ProteÃ­na adicional' }
     ],
     'Lanches': [
       { name: 'Vitamina com leite + aveia', portion: '300ml', notes: 'Extra de calorias limpas' },
-      { name: 'Sanduíche natural integral', portion: '2 fatias', notes: 'Carboidrato + proteína' }
+      { name: 'SanduÃ­che natural integral', portion: '2 fatias', notes: 'Carboidrato + proteÃ­na' }
     ]
   },
   manter: {
-    'Café da manhã': [
-      { name: 'Tapioca com cottage', portion: '2 colheres', notes: 'Proteína moderada' },
+    'CafÃ© da manhÃ£': [
+      { name: 'Tapioca com cottage', portion: '2 colheres', notes: 'ProteÃ­na moderada' },
       { name: 'Smoothie de frutas vermelhas', portion: '250ml', notes: 'Antioxidantes' }
     ],
-    'Almoço': [
-      { name: 'Peixe grelhado', portion: '180g', notes: 'Proteína leve' },
+    'AlmoÃ§o': [
+      { name: 'Peixe grelhado', portion: '180g', notes: 'ProteÃ­na leve' },
       { name: 'Quinoa', portion: '4 colheres', notes: 'Carboidrato equilibrado' },
-      { name: 'Brócolis no vapor', portion: 'à vontade', notes: 'Fibras' }
+      { name: 'BrÃ³colis no vapor', portion: 'Ã  vontade', notes: 'Fibras' }
     ],
     'Jantar': [
       { name: 'Caldinho com legumes', portion: '250ml', notes: 'Baixo carboidrato' },
-      { name: 'Omelete claro + vegetais', portion: '1 prato', notes: 'Proteína leve' }
+      { name: 'Omelete claro + vegetais', portion: '1 prato', notes: 'ProteÃ­na leve' }
     ],
     'Lanches': [
-      { name: 'Castanhas', portion: '20g', notes: 'Gordura saudável' },
-      { name: 'Fruta inteira com pasta de amendoim', portion: '1 unidade', notes: 'Equilíbrio energias' }
+      { name: 'Castanhas', portion: '20g', notes: 'Gordura saudÃ¡vel' },
+      { name: 'Fruta inteira com pasta de amendoim', portion: '1 unidade', notes: 'EquilÃ­brio energias' }
     ]
   }
 };
@@ -347,14 +347,14 @@ function handleOnline() {
 function handleOffline() {
   state.online = false;
   updateNetworkIndicator();
-  showToast('Você está offline. Mudanças serão enviadas quando voltar.', 'warning');
+  showToast('VocÃª estÃ¡ offline. MudanÃ§as serÃ£o enviadas quando voltar.', 'warning');
 }
 
 function updateNetworkIndicator() {
   if (!dom.networkStatus) return;
   dom.networkStatus.innerHTML = `
     <i class="fas fa-wifi"></i>
-    ${state.online ? 'Conectado' : 'Sem conexão'}
+    ${state.online ? 'Conectado' : 'Sem conexÃ£o'}
   `;
   dom.networkStatus.classList.toggle('text-danger', !state.online);
   dom.networkStatus.classList.toggle('text-success', state.online);
@@ -458,7 +458,7 @@ function loadLocalCache() {
       state.meta = { ...state.meta, ...JSON.parse(metaCache) };
     }
   } catch (error) {
-    console.warn('Não foi possível restaurar o cache local', error);
+    console.warn('NÃ£o foi possÃ­vel restaurar o cache local', error);
   }
 }
 
@@ -518,7 +518,7 @@ function renderRoute(route) {
   }
   highlightNavigation(route);
   const title = routeTitleMap[route] || 'SouFIT';
-  document.title = `SouFIT · ${title}`;
+  document.title = `SouFIT Â· ${title}`;
 }
 
 function highlightNavigation(route) {
@@ -554,7 +554,7 @@ function renderAuthLogin() {
         <label class="form-label">E-mail</label>
         <input name="email" type="email" class="form-control mb-3" required placeholder="seu@exemplo.com">
         <label class="form-label">Senha</label>
-        <input name="password" type="password" class="form-control mb-4" required minlength="8" placeholder="No mínimo 8 caracteres">
+        <input name="password" type="password" class="form-control mb-4" required minlength="8" placeholder="No mÃ­nimo 8 caracteres">
         <button type="submit" class="btn btn-primary w-100">Entrar</button>
       </form>
       <div class="d-flex justify-content-between mt-3">
@@ -585,7 +585,7 @@ function renderAuthSignup() {
         <button type="submit" class="btn btn-primary w-100 mt-4">Criar conta</button>
       </form>
       <div class="d-flex justify-content-between mt-3">
-        <span class="text-muted">Já possui conta?</span>
+        <span class="text-muted">JÃ¡ possui conta?</span>
         <button id="goToLogin" class="btn btn-link p-0">Entrar</button>
       </div>
     </div>
@@ -651,7 +651,7 @@ function renderAuthOnboarding() {
               <input name="hips_cm" type="number" class="form-control" min="70">
             </div>
             <div class="col">
-              <label class="form-label">Braços (cm)</label>
+              <label class="form-label">BraÃ§os (cm)</label>
               <input name="arm_cm" type="number" class="form-control" min="20">
             </div>
           </div>
@@ -667,11 +667,11 @@ function renderAuthOnboarding() {
         <div class="onboarding-step" data-step="2">
           <div class="row gx-2">
             <div class="col">
-              <label class="form-label">Frequência semanal</label>
+              <label class="form-label">FrequÃªncia semanal</label>
               <input name="weekly_frequency" type="number" class="form-control" min="1" max="7" value="3" required>
             </div>
             <div class="col">
-              <label class="form-label">Nível de treino</label>
+              <label class="form-label">NÃ­vel de treino</label>
               <select name="training_level" class="form-select" required>
                 ${trainingLevels
                   .map((level) => `<option value="${level}">${level.charAt(0).toUpperCase() + level.slice(1)}</option>`)
@@ -680,7 +680,7 @@ function renderAuthOnboarding() {
             </div>
           </div>
           <div class="mt-3">
-            <label class="form-label d-block">Grupos musculares prioritários</label>
+            <label class="form-label d-block">Grupos musculares prioritÃ¡rios</label>
             <div class="flex-gap">
               ${muscleInputs}
             </div>
@@ -697,7 +697,7 @@ function renderAuthOnboarding() {
         <div class="d-flex justify-content-between mt-4">
           <button type="button" id="onboardingBack" class="btn btn-outline-light">Voltar</button>
           <div>
-            <button type="button" id="onboardingNext" class="btn btn-outline-primary me-2">Próximo</button>
+            <button type="button" id="onboardingNext" class="btn btn-outline-primary me-2">PrÃ³ximo</button>
             <button type="submit" id="onboardingSubmit" class="btn btn-primary d-none">Finalizar</button>
           </div>
         </div>
@@ -756,7 +756,7 @@ function validateOnboardingStep(step) {
   for (const input of inputs) {
     if (!input.value) {
       input.focus();
-      showToast('Preencha todos os campos obrigatórios.', 'warning');
+      showToast('Preencha todos os campos obrigatÃ³rios.', 'warning');
       return false;
     }
   }
@@ -793,7 +793,7 @@ async function handleSignupForm(event) {
     return;
   }
   if (password.length < 8) {
-    showToast('Use no mínimo 8 caracteres na senha.', 'warning');
+    showToast('Use no mÃ­nimo 8 caracteres na senha.', 'warning');
     return;
   }
   try {
@@ -816,7 +816,7 @@ async function handleForgotPassword(event) {
   }
   try {
     await sendPasswordResetEmail(auth, email);
-    showToast('Link de redefinição enviado no e-mail.', 'success');
+    showToast('Link de redefiniÃ§Ã£o enviado no e-mail.', 'success');
   } catch (error) {
     showToast(error.message, 'error');
   }
@@ -1028,7 +1028,7 @@ function downloadJson(payload, prefix) {
 function renderMainRoute(route) {
   if (!dom.pageContent || !dom.pageTitle || !dom.statusSubtitle) return;
   dom.pageTitle.textContent = routeTitleMap[route] || '';
-  dom.statusSubtitle.textContent = state.profile && state.profile.name ? `Olá, Jogador ${state.profile.name}` : 'Recarregando dados';
+  dom.statusSubtitle.textContent = state.profile && state.profile.name ? `OlÃ¡, Jogador ${state.profile.name}` : 'Recarregando dados';
   switch (route) {
     case 'home':
       renderHome();
@@ -1064,18 +1064,18 @@ function renderHome() {
       <div class="paper-panel">
         <p class="text-muted mb-1">Plano Atual</p>
         <h3>${planCount} dias</h3>
-        <p>${exerciseCount} exercícios programados</p>
+        <p>${exerciseCount} exercÃ­cios programados</p>
         <button class="btn btn-sm btn-outline-light mt-3" data-action="regenerate-plan">Regenerar plano</button>
       </div>
       <div class="paper-panel">
         <p class="text-muted mb-1">Dieta ${goals}</p>
         <h3>${macros ? `${macros.calories} kcal` : 'Sem dados'}</h3>
-        <p>${macros ? `${macros.protein}g proteína • ${macros.carbs}g carbs • ${macros.fat}g gorduras` : 'Finalize o onboarding'}</p>
+        <p>${macros ? `${macros.protein}g proteÃ­na â€¢ ${macros.carbs}g carbs â€¢ ${macros.fat}g gorduras` : 'Finalize o onboarding'}</p>
         <button class="btn btn-sm btn-outline-light mt-3" data-action="sync-now">Sincronizar</button>
       </div>
       <div class="paper-panel">
-        <p class="text-muted mb-1">Última sincronização</p>
-        <h3>${state.meta.lastSyncAt ? new Date(state.meta.lastSyncAt).toLocaleString('pt-BR') : 'Ainda não sincronizado'}</h3>
+        <p class="text-muted mb-1">Ãšltima sincronizaÃ§Ã£o</p>
+        <h3>${state.meta.lastSyncAt ? new Date(state.meta.lastSyncAt).toLocaleString('pt-BR') : 'Ainda nÃ£o sincronizado'}</h3>
         <p class="text-muted">${state.online ? 'Online' : 'Offline'}</p>
       </div>
     </div>
@@ -1084,7 +1084,7 @@ function renderHome() {
       ${state.plan?.weekPlan?.map((day, index) => `
         <div class="plan-day">
           <div class="plan-day-header">
-            <span><strong>${DAY_LABELS[index]}</strong> · ${day.focus}</span>
+            <span><strong>${DAY_LABELS[index]}</strong> Â· ${day.focus}</span>
             <small>${day.exercises?.length || 0} ex.</small>
           </div>
           <ul>
@@ -1098,7 +1098,7 @@ function renderHome() {
               </li>
             `).join('')}
           </ul>
-          <button class="btn btn-sm btn-outline-success" data-action="add-exercise" data-day-index="${index}">Adicionar exercício</button>
+          <button class="btn btn-sm btn-outline-success" data-action="add-exercise" data-day-index="${index}">Adicionar exercÃ­cio</button>
         </div>
       `).join('') || '<p class="text-muted">Nenhum treino gerado ainda.</p>'}
     </div>
@@ -1133,7 +1133,7 @@ function renderWorkout() {
               <li>
                 <div>
                   <strong>${exercise.name}</strong>
-                  <small class="text-muted">${exercise.sets} · ${exercise.reps}</small>
+                  <small class="text-muted">${exercise.sets} Â· ${exercise.reps}</small>
                   <div class="text-muted" style="font-size:.8rem">${exercise.loadSuggestion || ''}</div>
                 </div>
                 <div class="small-btns">
@@ -1143,9 +1143,9 @@ function renderWorkout() {
               </li>
             `).join('')}
           </ul>
-          <button class="btn btn-sm btn-outline-success" data-action="add-exercise" data-day-index="${index}">Adicionar exercício</button>
+          <button class="btn btn-sm btn-outline-success" data-action="add-exercise" data-day-index="${index}">Adicionar exercÃ­cio</button>
         </div>
-      `).join('') || '<p class="text-muted">Nenhum treino disponível.</p>'}
+      `).join('') || '<p class="text-muted">Nenhum treino disponÃ­vel.</p>'}
     </div>
   `;
 }
@@ -1158,9 +1158,9 @@ function renderDiet() {
   dom.pageContent.innerHTML = `
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
       <div>
-        <p class="text-muted mb-1">Plano de refeições</p>
+        <p class="text-muted mb-1">Plano de refeiÃ§Ãµes</p>
         <h3>${macros ? `${macros.calories} kcal` : 'Sem dados'}</h3>
-        <small class="text-muted">${macros ? `Proteína ${macros.protein}g · Carbs ${macros.carbs}g · Gorduras ${macros.fat}g` : 'Complete o onboarding'}</small>
+        <small class="text-muted">${macros ? `ProteÃ­na ${macros.protein}g Â· Carbs ${macros.carbs}g Â· Gorduras ${macros.fat}g` : 'Complete o onboarding'}</small>
       </div>
       <div class="d-flex gap-2">
         <button class="btn btn-outline-light" data-action="upload-pdf" id="dietPdfTrigger">Upload PDF</button>
@@ -1169,8 +1169,8 @@ function renderDiet() {
     </div>
     <div class="paper-panel">
       <div class="d-flex gap-2 mb-3 flex-wrap">
-        <input id="newMealInput" class="form-control form-control-sm" placeholder="Nome da nova refeição">
-        <button id="addMealBtn" class="btn btn-sm btn-success">Criar refeição</button>
+        <input id="newMealInput" class="form-control form-control-sm" placeholder="Nome da nova refeiÃ§Ã£o">
+        <button id="addMealBtn" class="btn btn-sm btn-success">Criar refeiÃ§Ã£o</button>
       </div>
       <div class="flex-gap">
         ${meals
@@ -1180,7 +1180,7 @@ function renderDiet() {
                 <strong>${meal.name}</strong>
                 <div class="small-btns">
                   <button class="btn btn-sm btn-outline-primary" data-action="add-diet-item" data-meal-index="${mealIndex}">+ item</button>
-                  <button class="btn btn-sm btn-outline-danger" data-action="delete-meal" data-meal-index="${mealIndex}">Excluir refeição</button>
+                  <button class="btn btn-sm btn-outline-danger" data-action="delete-meal" data-meal-index="${mealIndex}">Excluir refeiÃ§Ã£o</button>
                 </div>
               </div>
               <ul>
@@ -1217,19 +1217,19 @@ function renderResults() {
       <div class="cards-grid">
         <div>
           <strong>Peso</strong>
-          <p>${state.profile?.weight_kg ? `${state.profile.weight_kg} kg` : '—'}</p>
+          <p>${state.profile?.weight_kg ? `${state.profile.weight_kg} kg` : 'â€”'}</p>
         </div>
         <div>
           <strong>Altura</strong>
-          <p>${state.profile?.height_cm ? `${state.profile.height_cm} cm` : '—'}</p>
+          <p>${state.profile?.height_cm ? `${state.profile.height_cm} cm` : 'â€”'}</p>
         </div>
         <div>
           <strong>Cintura</strong>
-          <p>${measures?.waist ? `${measures.waist} cm` : '—'}</p>
+          <p>${measures?.waist ? `${measures.waist} cm` : 'â€”'}</p>
         </div>
         <div>
           <strong>Peito</strong>
-          <p>${measures?.chest ? `${measures.chest} cm` : '—'}</p>
+          <p>${measures?.chest ? `${measures.chest} cm` : 'â€”'}</p>
         </div>
       </div>
       <div class="mt-4">
@@ -1245,7 +1245,7 @@ function renderSpeed() {
   dom.pageContent.innerHTML = `
     <div class="paper-panel">
       <h3>Velocidade & Corridas</h3>
-      <p class="text-muted">Registre corridas, acompanhe ritmos e conquiste metas de speed. Ainda mais conteúdo chegando em breve.</p>
+      <p class="text-muted">Registre corridas, acompanhe ritmos e conquiste metas de speed. Ainda mais conteÃºdo chegando em breve.</p>
       <button class="btn btn-outline-light" data-action="sync-now">Atualizar Speed</button>
     </div>
   `;
@@ -1271,11 +1271,11 @@ function renderProfile() {
       </div>
       <div class="mt-4 cards-grid">
         <div>
-          <small class="text-muted">Frequência semanal</small>
+          <small class="text-muted">FrequÃªncia semanal</small>
           <h4>${profile?.weekly_frequency || '-'}</h4>
         </div>
         <div>
-          <small class="text-muted">Nível</small>
+          <small class="text-muted">NÃ­vel</small>
           <h4>${profile?.training_level || '-'}</h4>
         </div>
         <div>
@@ -1311,7 +1311,7 @@ function renderDietPdfPreview() {
   if (!container) return;
   const url = state.dietPlan?.dietPdfUrl;
   if (url) {
-    container.innerHTML = `<object data="${url}" type="application/pdf">Documento disponível em <a href="${url}" target="_blank" rel="noreferrer">nova aba</a></object>`;
+    container.innerHTML = `<object data="${url}" type="application/pdf">Documento disponÃ­vel em <a href="${url}" target="_blank" rel="noreferrer">nova aba</a></object>`;
     return;
   }
   container.innerHTML = `<p class="text-muted">Nenhum PDF enviado ainda.</p>`;
@@ -1413,7 +1413,7 @@ function handlePageAction(event) {
       break;
     case 'sync-now':
       flushSync();
-      showToast('Sincronização disparada.', 'success');
+      showToast('SincronizaÃ§Ã£o disparada.', 'success');
       break;
     case 'toggle-theme':
       toggleTheme();
@@ -1426,7 +1426,7 @@ function handlePageAction(event) {
 function populateExerciseSelect() {
   if (!dom.exerciseSelect) return;
   dom.exerciseSelect.innerHTML = exerciseLibrary
-    .map((exercise) => `<option value="${exercise.id}">${exercise.name} · ${exercise.group}</option>`)
+    .map((exercise) => `<option value="${exercise.id}">${exercise.name} Â· ${exercise.group}</option>`)
     .join('');
 }
 
@@ -1439,7 +1439,7 @@ function deleteExercise(dayIndex, exerciseIndex) {
   persistLocal('plan');
   flushSync();
   renderRoute(state.route);
-  showToast('Exercício removido.', 'warning');
+  showToast('ExercÃ­cio removido.', 'warning');
 }
 
 function openExerciseModal(context) {
@@ -1453,14 +1453,14 @@ function openExerciseModal(context) {
   const notesInput = document.getElementById('exerciseNotes');
   if (exerciseIndex != null && planDay?.exercises?.[exerciseIndex]) {
     const existing = planDay.exercises[exerciseIndex];
-    document.getElementById('exerciseModalLabel').textContent = 'Editar Exercício';
+    document.getElementById('exerciseModalLabel').textContent = 'Editar ExercÃ­cio';
     document.getElementById('exerciseSelect').value = exerciseLibrary.find((ex) => ex.name === existing.name)?.id || document.getElementById('exerciseSelect').value;
     if (setsInput) setsInput.value = existing.sets || '';
     if (repsInput) repsInput.value = existing.reps || '';
     if (loadInput) loadInput.value = existing.loadSuggestion || '';
     if (notesInput) notesInput.value = existing.notes || '';
   } else {
-    document.getElementById('exerciseModalLabel').textContent = 'Adicionar Exercício';
+    document.getElementById('exerciseModalLabel').textContent = 'Adicionar ExercÃ­cio';
     if (setsInput) setsInput.value = '';
     if (repsInput) repsInput.value = '';
     if (loadInput) loadInput.value = '';
@@ -1483,7 +1483,7 @@ function handleExerciseFormSubmit(event) {
   const template = exerciseLibrary.find((item) => item.id === templateId);
   const exerciseData = {
     id: `${templateId || 'manual'}-${Date.now()}`,
-    name: template?.name || form.querySelector('#exerciseSelect')?.selectedOptions?.[0]?.text || 'Exercício',
+    name: template?.name || form.querySelector('#exerciseSelect')?.selectedOptions?.[0]?.text || 'ExercÃ­cio',
     group: template?.group || 'Core',
     sets: sets || template?.defaultSets || '',
     reps: reps || template?.defaultReps || '',
@@ -1504,7 +1504,7 @@ function handleExerciseFormSubmit(event) {
   flushSync();
   bootstrapExerciseModal.hide();
   renderRoute(state.route);
-  showToast('Exercício salvo.', 'success');
+  showToast('ExercÃ­cio salvo.', 'success');
 }
 
 function refreshDietMealOptions() {
@@ -1580,7 +1580,7 @@ function deleteDietItem(mealIndex, itemIndex) {
   markDirty('diet');
   persistLocal('diet');
   flushSync();
-  showToast('Item excluído.', 'warning');
+  showToast('Item excluÃ­do.', 'warning');
   renderRoute(state.route);
 }
 
@@ -1591,7 +1591,7 @@ function deleteMeal(mealIndex) {
   markDirty('diet');
   persistLocal('diet');
   flushSync();
-  showToast('Refeição removida.', 'warning');
+  showToast('RefeiÃ§Ã£o removida.', 'warning');
   renderRoute(state.route);
 }
 
@@ -1599,7 +1599,7 @@ function handleAddMeal() {
   const input = document.getElementById('newMealInput');
   const name = input?.value.trim();
   if (!name) {
-    showToast('Informe o nome da refeição.', 'warning');
+    showToast('Informe o nome da refeiÃ§Ã£o.', 'warning');
     return;
   }
   if (!state.dietPlan) state.dietPlan = generateDietPlan(state.profile || {});
@@ -1611,7 +1611,7 @@ function handleAddMeal() {
   flushSync();
   if (input) input.value = '';
   renderRoute(state.route);
-  showToast('Refeição adicionada.', 'success');
+  showToast('RefeiÃ§Ã£o adicionada.', 'success');
 }
 
 async function handleLogout() {
@@ -1621,7 +1621,7 @@ async function handleLogout() {
     state.plan = null;
     state.dietPlan = null;
     state.settings.profileCompleted = false;
-    showToast('Sessão encerrada.', 'success');
+    showToast('SessÃ£o encerrada.', 'success');
     navigateTo('auth-login');
   } catch (error) {
     showToast('Erro ao sair.', 'error');
@@ -1649,17 +1649,17 @@ function getFocusGroups(focus, preferred) {
   const mapping = {
     'Peito & Costas': ['Peito', 'Costas'],
     'Pernas & Core': ['Pernas', 'Core'],
-    'Ombros & Braços': ['Ombros', 'Braços'],
+    'Ombros & BraÃ§os': ['Ombros', 'BraÃ§os'],
     Superior: ['Peito', 'Costas', 'Ombros'],
     Inferior: ['Pernas', 'Core'],
-    Push: ['Peito', 'Ombros', 'Braços'],
-    Pull: ['Costas', 'Braços'],
+    Push: ['Peito', 'Ombros', 'BraÃ§os'],
+    Pull: ['Costas', 'BraÃ§os'],
     'Full Body': ['Peito', 'Costas', 'Pernas', 'Core'],
     Peito: ['Peito'],
     Costas: ['Costas'],
     Pernas: ['Pernas'],
     Ombros: ['Ombros'],
-    Braços: ['Braços'],
+    BraÃ§os: ['BraÃ§os'],
     Core: ['Core']
   };
   const defaults = mapping[focus] || ['Peito', 'Costas', 'Pernas'];
